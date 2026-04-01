@@ -61,14 +61,7 @@ export const listHistory = query({
       )
       .collect();
 
-    const failed = await ctx.db
-      .query("sessions")
-      .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "failed"),
-      )
-      .collect();
-
-    return [...completed, ...cancelled, ...failed].sort(
+    return [...completed, ...cancelled].sort(
       (a, b) => b._creationTime - a._creationTime,
     );
   },
@@ -114,6 +107,10 @@ export const create = mutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
     if (!user) throw new Error("Profile not found. Complete setup first.");
+
+    if (args.durationMinutes < 1 || args.durationMinutes > 1440) {
+      throw new Error("Duration must be between 1 and 1440 minutes");
+    }
 
     // Check for existing active session
     for (const status of ["active", "renewing", "failed"]) {
@@ -202,6 +199,10 @@ export const extend = mutation({
 
     if (!["active", "renewing"].includes(session.status)) {
       throw new Error("Session is not active");
+    }
+
+    if (args.additionalMinutes < 1 || args.additionalMinutes > 1440) {
+      throw new Error("Extension must be between 1 and 1440 minutes");
     }
 
     const newDesiredEndTime =
@@ -306,7 +307,6 @@ export const retry = mutation({
     await ctx.db.patch(args.sessionId, {
       status: "active",
       retryCount: 0,
-      parkeazCookieJson: undefined,
       lastError: undefined,
     });
 

@@ -5,6 +5,7 @@ import { useSignUp } from "@clerk/clerk-expo";
 import { router } from "expo-router";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
+import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 
 export default function SignUpScreen() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -121,6 +122,18 @@ export default function SignUpScreen() {
           onPress={handleSignUp}
           disabled={loading || !email || !password}
         />
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text
+            style={[typography.labelMd, { color: colors.onSurfaceVariant }]}
+          >
+            OR
+          </Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <GoogleSignInButton label="Sign up with Google" />
       </View>
 
       <Pressable
@@ -162,6 +175,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_400Regular",
     color: colors.onSurface,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceContainerHigh,
   },
   switchLink: {
     alignItems: "center",

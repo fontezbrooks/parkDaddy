@@ -95,11 +95,32 @@ export const push = internalAction({
     }));
 
     try {
-      await fetch("https://exp.host/--/api/v2/push/send", {
+      const response = await fetch("https://exp.host/--/api/v2/push/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(messages),
       });
+
+      if (response.ok) {
+        const body = (await response.json()) as {
+          data: Array<{ status: string; details?: { error?: string } }>;
+        };
+        const deadTokens: string[] = [];
+        body.data.forEach((ticket, i) => {
+          if (
+            ticket.status === "error" &&
+            ticket.details?.error === "DeviceNotRegistered"
+          ) {
+            deadTokens.push(tokens[i].token);
+          }
+        });
+        if (deadTokens.length > 0) {
+          await ctx.runMutation(internal.notificationsHelpers.pruneDeadTokens, {
+            userId: args.userId,
+            tokens: deadTokens,
+          });
+        }
+      }
     } catch (error) {
       console.error("Push notification failed:", error);
     }

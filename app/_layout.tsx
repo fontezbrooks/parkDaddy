@@ -32,13 +32,25 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
+const ALLOWED_NOTIFICATION_ROUTES = [
+  "/(tabs)",
+  "/extend-duration",
+  "/confirm-stop",
+] as const;
+
+function isAllowedRoute(
+  route: string,
+): route is (typeof ALLOWED_NOTIFICATION_ROUTES)[number] {
+  return (ALLOWED_NOTIFICATION_ROUTES as readonly string[]).includes(route);
+}
+
 function useNotificationObserver() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const url = response.notification.request.content.data?.route;
-        if (typeof url === "string") {
-          router.push(url as any);
+        if (typeof url === "string" && isAllowedRoute(url)) {
+          router.push(url);
         }
       },
     );
@@ -74,7 +86,7 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -82,12 +94,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>

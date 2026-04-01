@@ -32,6 +32,8 @@ export default function TabsLayout() {
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/welcome" />;
+  // undefined = query still loading, null = no profile exists
+  if (profile === undefined) return null;
   if (profile === null) return <Redirect href="/(auth)/profile-setup" />;
 
   return (

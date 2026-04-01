@@ -1,5 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
@@ -52,10 +58,28 @@ export default function ExtendDurationScreen() {
     }
   }, [session, selectedMinutes, extendSession]);
 
-  if (!session) {
+  if (session === undefined) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (session === null) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
+        <Text
+          style={[
+            typography.bodyMd,
+            { color: colors.onSurfaceVariant, padding: spacing.lg },
+          ]}
+        >
           No active session
         </Text>
       </SafeAreaView>

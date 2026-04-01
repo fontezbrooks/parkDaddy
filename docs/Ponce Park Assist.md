@@ -62,7 +62,7 @@ curl 'https://paid.parkeaz.com/charge' \
   -H 'sec-fetch-user: ?1' \
   -H 'upgrade-insecure-requests: 1' \
   -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36' \
-  --data-raw 'parkstart=2026-03-27+14%3A11%3A07&parkend=2026-03-27+16%3A11%3A07&zone=622&zoneid=247&propertyid=202&propertyname=Ponce+Springs+Lofts&plate=CPM2150&tenantid=&email=fontez0622%40gmail.com&mobile=4044372480&parkallowtextalert=Off&spacenumber=&firstname=Fontez&lastname=Brooks&vehiclemake=&vehiclemodel=&vehiclecolor=&vehiclestate=&product=3615&producttime=120&couponid=0&coupondiscount=0&couponpriceadded=0&productprice=0.00&transactionfee=0&totalcharge=0&stripeprice=0&extension=0&guestcode=MTDJR7'
+  --data-raw 'parkstart=2026-03-27+14%3A11%3A07&parkend=2026-03-27+16%3A11%3A07&zone=622&zoneid=247&propertyid=202&propertyname=Ponce+Springs+Lofts&plate=CPM2150&tenantid=&email=fontez0622%40gmail.com&mobile=4044372480&parkallowtextalert=On&spacenumber=&firstname=Fontez&lastname=Brooks&vehiclemake=&vehiclemodel=&vehiclecolor=&vehiclestate=&product=3615&producttime=120&couponid=0&coupondiscount=0&couponpriceadded=0&productprice=0.00&transactionfee=0&totalcharge=0&stripeprice=0&extension=0&guestcode=MTDJR7'
 ```
 
 ```bash
