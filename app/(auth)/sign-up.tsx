@@ -52,9 +52,7 @@ export default function SignUpScreen() {
   if (pendingVerification) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={[typography.headlineLg, styles.title]}>
-          Verify Email
-        </Text>
+        <Text style={[typography.headlineLg, styles.title]}>Verify Email</Text>
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
           We sent a verification code to {email}
         </Text>
@@ -86,9 +84,7 @@ export default function SignUpScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Text style={[typography.bodyLg, { color: colors.primary }]}>
-          Back
-        </Text>
+        <Text style={[typography.bodyLg, { color: colors.primary }]}>Back</Text>
       </Pressable>
 
       <Text style={[typography.headlineLg, styles.title]}>Create Account</Text>

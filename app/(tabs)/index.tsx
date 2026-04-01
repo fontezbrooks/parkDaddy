@@ -1,9 +1,15 @@
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Linking,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { router } from "expo-router";
-import { Linking } from "react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -37,8 +43,8 @@ function InactiveState() {
           No active session. Your guests are not currently registered.
         </Text>
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-          Start a session to provide your guests with verified parking status and
-          avoid enforcement risk.
+          Start a session to provide your guests with verified parking status
+          and avoid enforcement risk.
         </Text>
       </View>
 
@@ -67,7 +73,9 @@ function InactiveState() {
                 }
               />
             )}
-            ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: spacing.sm }} />
+            )}
             scrollEnabled={false}
           />
         </View>
@@ -79,7 +87,9 @@ function InactiveState() {
 function ActiveState({
   session,
 }: {
-  session: NonNullable<ReturnType<typeof useQuery<typeof api.sessions.getActive>>>;
+  session: NonNullable<
+    ReturnType<typeof useQuery<typeof api.sessions.getActive>>
+  >;
 }) {
   const status = session.status as "active" | "renewing" | "failed";
 
@@ -108,7 +118,9 @@ function ActiveState({
         )}
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
-            <Text style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}>
+            <Text
+              style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}
+            >
               VEHICLE
             </Text>
             <Text style={[typography.titleLg, { color: colors.onPrimary }]}>
@@ -116,7 +128,9 @@ function ActiveState({
             </Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}>
+            <Text
+              style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}
+            >
               ZONE
             </Text>
             <Text style={[typography.titleLg, { color: colors.onPrimary }]}>
@@ -128,7 +142,12 @@ function ActiveState({
 
       {session.renewalLogs && session.renewalLogs.length > 0 && (
         <SurfaceCard level={1}>
-          <Text style={[typography.labelMd, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
+          <Text
+            style={[
+              typography.labelMd,
+              { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
+            ]}
+          >
             RENEWAL LOG
           </Text>
           {session.renewalLogs
@@ -164,7 +183,9 @@ function ActiveState({
 function ErrorState({
   session,
 }: {
-  session: NonNullable<ReturnType<typeof useQuery<typeof api.sessions.getActive>>>;
+  session: NonNullable<
+    ReturnType<typeof useQuery<typeof api.sessions.getActive>>
+  >;
 }) {
   const retryMutation = useMutation(api.sessions.retry);
 
@@ -178,7 +199,9 @@ function ErrorState({
 
       {session.lastParkEnd && (
         <SurfaceCard level={2}>
-          <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+          <Text
+            style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+          >
             REGISTRATION EXPIRES IN
           </Text>
           <CountdownTimer
@@ -210,9 +233,7 @@ function ErrorState({
       />
 
       <Pressable
-        onPress={() =>
-          Linking.openURL("https://paid.parkeaz.com")
-        }
+        onPress={() => Linking.openURL("https://paid.parkeaz.com")}
         style={styles.manualLink}
       >
         <Text style={[typography.bodyMd, { color: colors.primary }]}>

@@ -11,7 +11,10 @@ function getOvernightMinutes(): number {
   const tomorrow8am = new Date(now);
   tomorrow8am.setDate(tomorrow8am.getDate() + 1);
   tomorrow8am.setHours(8, 0, 0, 0);
-  return Math.max(120, Math.round((tomorrow8am.getTime() - now.getTime()) / 60000));
+  return Math.max(
+    120,
+    Math.round((tomorrow8am.getTime() - now.getTime()) / 60000),
+  );
 }
 
 const PRESETS = [
@@ -49,7 +52,10 @@ export default function StartParkingScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={[typography.labelMd, styles.sectionLabel]}>
           VEHICLE IDENTITY
         </Text>
@@ -120,12 +126,16 @@ export default function StartParkingScreen() {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
+              <Text
+                style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}
+              >
                 {" "}
                 ({estimatedEnd.toLocaleDateString([], { weekday: "short" })})
               </Text>
             </Text>
-            <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
+            >
               {renewalCount} renewal{renewalCount !== 1 ? "s" : ""} included
             </Text>
           </View>

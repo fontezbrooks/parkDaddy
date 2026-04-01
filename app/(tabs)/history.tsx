@@ -4,7 +4,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 
-type SessionItem = NonNullable<ReturnType<typeof useQuery<typeof api.sessions.listHistory>>>[number];
+type SessionItem = NonNullable<
+  ReturnType<typeof useQuery<typeof api.sessions.listHistory>>
+>[number];
 
 function getStatusConfig(status: string) {
   switch (status) {
@@ -48,12 +50,14 @@ function SessionCard({ session }: { session: SessionItem }) {
   const statusConfig = getStatusConfig(session.status);
   const date = new Date(session._creationTime);
   const durationMs = session.desiredEndTime - session._creationTime;
-  const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10;
+  const durationHours = Math.round((durationMs / (60 * 60 * 1000)) * 10) / 10;
 
   return (
     <Pressable style={styles.card}>
       <View style={styles.cardLeft}>
-        <View style={[styles.statusDot, { backgroundColor: statusConfig.color }]} />
+        <View
+          style={[styles.statusDot, { backgroundColor: statusConfig.color }]}
+        />
         <View style={styles.cardInfo}>
           <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
             {date.toLocaleDateString("en-US", {
@@ -88,7 +92,11 @@ export default function HistoryScreen() {
       <Text
         style={[
           typography.headlineLg,
-          { color: colors.onSurface, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+          {
+            color: colors.onSurface,
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+          },
         ]}
       >
         History

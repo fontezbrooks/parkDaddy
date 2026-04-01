@@ -11,7 +11,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Constants from "expo-constants";
-import { colors, typography, spacing, radius } from "@/src/theme";
+import { colors, typography, spacing } from "@/src/theme";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
 
 export default function SettingsScreen() {

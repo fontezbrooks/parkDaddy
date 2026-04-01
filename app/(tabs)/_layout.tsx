@@ -13,11 +13,12 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   };
 
   return (
-    <View
-      style={[styles.iconContainer, focused && styles.iconContainerActive]}
-    >
+    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
       <Text
-        style={[styles.iconText, { color: focused ? colors.primary : colors.onSurfaceVariant }]}
+        style={[
+          styles.iconText,
+          { color: focused ? colors.primary : colors.onSurfaceVariant },
+        ]}
       >
         {icons[name] ?? "?"}
       </Text>

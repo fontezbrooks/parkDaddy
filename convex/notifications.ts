@@ -3,14 +3,6 @@ import { internalAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 // Internal query helper to get push tokens for a user
-const getUserTokens = async (
-  ctx: { runQuery: (ref: any, args: any) => Promise<any> },
-  userId: string
-) => {
-  return await ctx.runQuery(internal.notificationsHelpers.getTokensForUser, {
-    userId,
-  });
-};
 
 export const sendExpiryWarning = internalMutation({
   args: { sessionId: v.id("sessions") },
@@ -85,9 +77,9 @@ export const push = internalAction({
     data: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const tokens: Array<{ token: string }> = await ctx.runQuery(
+    const tokens: { token: string }[] = await ctx.runQuery(
       internal.notificationsHelpers.getTokensForUser,
-      { userId: args.userId }
+      { userId: args.userId },
     );
 
     if (tokens.length === 0) return;

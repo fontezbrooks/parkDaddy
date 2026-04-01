@@ -38,9 +38,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Text style={[typography.bodyLg, { color: colors.primary }]}>
-          Back
-        </Text>
+        <Text style={[typography.bodyLg, { color: colors.primary }]}>Back</Text>
       </Pressable>
 
       <Text style={[typography.headlineLg, styles.title]}>Sign In</Text>
@@ -84,8 +82,7 @@ export default function SignInScreen() {
         style={styles.switchLink}
       >
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-          Don't have an account?{" "}
-          <Text style={{ color: colors.primary }}>Sign Up</Text>
+          No account? <Text style={{ color: colors.primary }}>Sign Up</Text>
         </Text>
       </Pressable>
     </SafeAreaView>

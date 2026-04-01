@@ -10,7 +10,7 @@ export const safetyNetScan = internalMutation({
     const overdue = await ctx.db
       .query("sessions")
       .withIndex("by_next_renewal", (q) =>
-        q.eq("status", "active").lt("nextRenewalAt", now)
+        q.eq("status", "active").lt("nextRenewalAt", now),
       )
       .collect();
 
@@ -21,7 +21,7 @@ export const safetyNetScan = internalMutation({
         now - session.nextRenewalAt > 5 * 60 * 1000
       ) {
         console.log(
-          `Safety net: re-triggering renewal for session ${session._id}`
+          `Safety net: re-triggering renewal for session ${session._id}`,
         );
         await ctx.scheduler.runAfter(0, internal.renewal.tick, {
           sessionId: session._id,
@@ -38,10 +38,12 @@ export const safetyNetScan = internalMutation({
     for (const session of stuck) {
       // If a session has been "renewing" for more than 5 minutes, re-trigger
       const stuckDuration = now - session._creationTime;
-      if (stuckDuration > 5 * 60 * 1000 && session.nextRenewalAt && now - session.nextRenewalAt > 5 * 60 * 1000) {
-        console.log(
-          `Safety net: unsticking renewing session ${session._id}`
-        );
+      if (
+        stuckDuration > 5 * 60 * 1000 &&
+        session.nextRenewalAt &&
+        now - session.nextRenewalAt > 5 * 60 * 1000
+      ) {
+        console.log(`Safety net: unsticking renewing session ${session._id}`);
         await ctx.db.patch(session._id, { status: "active" });
         await ctx.scheduler.runAfter(0, internal.renewal.tick, {
           sessionId: session._id,

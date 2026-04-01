@@ -7,10 +7,13 @@
     "prebuild": "expo prebuild",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json}\""
   },
   "dependencies": {
-    "@clerk/clerk-expo": "^2.19.31",
+    "@clerk/clerk-expo": "~2.19.33",
     "@expo-google-fonts/inter": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "convex": "^1.34.1",
@@ -45,7 +48,24 @@
     "@types/node-fetch": "^2.6.13",
     "@types/react": "~19.1.0",
     "@types/tough-cookie": "^4.0.5",
+    "eslint": "^9.7.0",
+    "eslint-config-expo": "~55.0.0",
+    "prettier": "^3.5.0",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "@clerk/clerk-js": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "@clerk/clerk-react": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    },
+    "@clerk/shared": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   },
   "private": true
 }

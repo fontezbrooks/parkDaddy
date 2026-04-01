@@ -33,7 +33,11 @@ function getCookieHeader(jar: CookieJar, url: string): string {
   return jar.getCookieStringSync(url);
 }
 
-function applyCookies(jar: CookieJar, url: string, headers: Record<string, string[]>): void {
+function applyCookies(
+  jar: CookieJar,
+  url: string,
+  headers: Record<string, string[]>,
+): void {
   const setCookies = headers["set-cookie"] || [];
   for (const cookie of setCookies) {
     jar.setCookieSync(cookie, url);
@@ -193,7 +197,7 @@ export const renewalAction = internalAction({
       // Extract server-confirmed parkend if available
       let confirmedParkEnd = parkEnd.getTime();
       const parkEndMatch = chargeHtml.match(
-        /parkend[=:]\s*["']?([\d-]+[\s+][\d:]+)/i
+        /parkend[=:]\s*["']?([\d-]+[\s+][\d:]+)/i,
       );
       if (parkEndMatch) {
         const parsed = parseParkDate(parkEndMatch[1]);
@@ -215,7 +219,7 @@ export const renewalAction = internalAction({
       // Try to extract confirmed end time from success page
       const successHtml = await successRes.text();
       const endTimeMatch = successHtml.match(
-        /(?:ends?|expir|valid\s+until)[^"]*?([\d-]+[\s+][\d:]+)/i
+        /(?:ends?|expir|valid\s+until)[^"]*?([\d-]+[\s+][\d:]+)/i,
       );
       if (endTimeMatch) {
         const parsed = parseParkDate(endTimeMatch[1]);

@@ -15,10 +15,7 @@ export const tick = internalMutation({
     if (["cancelled", "completed"].includes(session.status)) return;
 
     // If already past desired end and we have coverage, complete
-    if (
-      session.lastParkEnd &&
-      session.lastParkEnd >= session.desiredEndTime
-    ) {
+    if (session.lastParkEnd && session.lastParkEnd >= session.desiredEndTime) {
       await ctx.db.patch(args.sessionId, { status: "completed" });
       await ctx.db.insert("renewalLogs", {
         sessionId: args.sessionId,
@@ -87,11 +84,9 @@ export const saveResult = internalMutation({
         sessionId: args.sessionId,
         action: "completed",
       });
-      await ctx.scheduler.runAfter(
-        0,
-        internal.notifications.sendSessionEnded,
-        { sessionId: args.sessionId }
-      );
+      await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
+        sessionId: args.sessionId,
+      });
       return;
     }
 
@@ -102,7 +97,7 @@ export const saveResult = internalMutation({
     const scheduledFunctionId = await ctx.scheduler.runAfter(
       delay,
       internal.renewal.tick,
-      { sessionId: args.sessionId }
+      { sessionId: args.sessionId },
     );
 
     // Schedule expiry warning if not already done and within range
@@ -113,7 +108,7 @@ export const saveResult = internalMutation({
         expiryWarningId = await ctx.scheduler.runAt(
           warningTime,
           internal.notifications.sendExpiryWarning,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       }
     }
@@ -192,13 +187,13 @@ export const handleFailure = internalMutation({
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.sendUrgentFailure,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       } else {
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.sendRenewalFailure,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       }
     }

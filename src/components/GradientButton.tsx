@@ -33,8 +33,8 @@ export function GradientButton({
 
   const gradientColors =
     variant === "secondary"
-      ? [colors.secondary, "#8b1016"] as const
-      : [colors.primary, colors.primaryContainer] as const;
+      ? ([colors.secondary, "#8b1016"] as const)
+      : ([colors.primary, colors.primaryContainer] as const);
 
   return (
     <Pressable onPress={onPress} disabled={disabled} style={style}>

@@ -36,12 +36,7 @@ export function CountdownTimer({
 
   return (
     <Text
-      style={[
-        textStyle,
-        styles.timer,
-        remaining <= 0 && styles.expired,
-        style,
-      ]}
+      style={[textStyle, styles.timer, remaining <= 0 && styles.expired, style]}
     >
       {formatTime(remaining)}
     </Text>

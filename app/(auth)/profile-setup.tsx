@@ -16,7 +16,7 @@ export default function ProfileSetupScreen() {
   const [lastName, setLastName] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState(
-    user?.primaryEmailAddress?.emailAddress ?? ""
+    user?.primaryEmailAddress?.emailAddress ?? "",
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

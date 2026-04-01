@@ -4,9 +4,17 @@ import { colors, typography, spacing, radius } from "@/src/theme";
 type SessionStatus = "active" | "renewing" | "failed";
 
 const STATUS_CONFIG = {
-  active: { bg: colors.tertiary, text: "#0a5c4e", label: "ACTIVE (REGISTERED)" },
+  active: {
+    bg: colors.tertiary,
+    text: "#0a5c4e",
+    label: "ACTIVE (REGISTERED)",
+  },
   renewing: { bg: "#FFD60A", text: "#5c4a00", label: "RENEWING..." },
-  failed: { bg: colors.secondary, text: colors.onSecondary, label: "RENEWAL FAILED" },
+  failed: {
+    bg: colors.secondary,
+    text: colors.onSecondary,
+    label: "RENEWAL FAILED",
+  },
 } as const;
 
 type Props = {

@@ -15,11 +15,7 @@ type Props = ViewProps & {
 export function SurfaceCard({ level = 1, style, children, ...rest }: Props) {
   return (
     <View
-      style={[
-        styles.card,
-        { backgroundColor: LEVEL_COLORS[level] },
-        style,
-      ]}
+      style={[styles.card, { backgroundColor: LEVEL_COLORS[level] }, style]}
       {...rest}
     >
       {children}

@@ -19,7 +19,7 @@ export const getActive = query({
       const session = await ctx.db
         .query("sessions")
         .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status)
+          q.eq("userId", user._id).eq("status", status),
         )
         .first();
       if (session) {
@@ -50,26 +50,26 @@ export const listHistory = query({
     const completed = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "completed")
+        q.eq("userId", user._id).eq("status", "completed"),
       )
       .collect();
 
     const cancelled = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "cancelled")
+        q.eq("userId", user._id).eq("status", "cancelled"),
       )
       .collect();
 
     const failed = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "failed")
+        q.eq("userId", user._id).eq("status", "failed"),
       )
       .collect();
 
     return [...completed, ...cancelled, ...failed].sort(
-      (a, b) => b._creationTime - a._creationTime
+      (a, b) => b._creationTime - a._creationTime,
     );
   },
 });
@@ -120,7 +120,7 @@ export const create = mutation({
       const existing = await ctx.db
         .query("sessions")
         .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status)
+          q.eq("userId", user._id).eq("status", status),
         )
         .first();
       if (existing) {
@@ -223,7 +223,7 @@ export const extend = mutation({
       expiryWarningId = await ctx.scheduler.runAt(
         warningTime,
         internal.notifications.sendExpiryWarning,
-        { sessionId: args.sessionId }
+        { sessionId: args.sessionId },
       );
     }
 
