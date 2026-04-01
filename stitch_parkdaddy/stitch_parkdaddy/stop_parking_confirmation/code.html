@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-lowest": "#ffffff",
+              "surface-container-low": "#f3f3f5",
+              "surface-container-high": "#e8e8ea",
+              "tertiary-fixed-dim": "#70d8c8",
+              "primary-container": "#1a237e",
+              "on-surface-variant": "#454652",
+              "on-primary-fixed-variant": "#343d96",
+              "tertiary-container": "#003731",
+              "inverse-on-surface": "#f0f0f2",
+              "surface-variant": "#e2e2e4",
+              "secondary": "#b6171e",
+              "primary-fixed": "#e0e0ff",
+              "inverse-surface": "#2f3132",
+              "surface-container": "#eeeef0",
+              "primary": "#000666",
+              "surface-tint": "#4c56af",
+              "tertiary-fixed": "#8df5e4",
+              "on-error": "#ffffff",
+              "on-tertiary-container": "#3ba899",
+              "secondary-fixed": "#ffdad6",
+              "surface-container-highest": "#e2e2e4",
+              "surface-bright": "#f9f9fb",
+              "on-background": "#1a1c1d",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#410003",
+              "on-primary-fixed": "#000767",
+              "inverse-primary": "#bdc2ff",
+              "surface-dim": "#d9dadc",
+              "error": "#ba1a1a",
+              "surface": "#f9f9fb",
+              "outline-variant": "#c6c5d4",
+              "on-secondary-fixed-variant": "#930010",
+              "primary-fixed-dim": "#bdc2ff",
+              "secondary-container": "#da3433",
+              "outline": "#767683",
+              "on-tertiary-fixed-variant": "#005048",
+              "secondary-fixed-dim": "#ffb3ac",
+              "on-primary": "#ffffff",
+              "on-primary-container": "#8690ee",
+              "on-secondary": "#ffffff",
+              "error-container": "#ffdad6",
+              "on-secondary-container": "#fffbff",
+              "on-error-container": "#93000a",
+              "background": "#f9f9fb",
+              "on-surface": "#1a1c1d",
+              "tertiary": "#00201c",
+              "on-tertiary-fixed": "#00201c"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-slate-50 dark:bg-slate-950 flex justify-between items-center w-full px-6 h-16 fixed top-0 z-40">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-indigo-900 dark:text-indigo-400">menu</span>
+<span class="text-lg font-black tracking-tighter text-indigo-950 dark:text-indigo-50">ParkAssist</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="User Profile" data-alt="Professional headshot of a person with a friendly expression in a clean, minimalist studio setting with soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCu1lA93mZoFhA6tGjXZ9Js07habIL3-_nZotmOpp9NQJrbTm50qkDPbS08JDzI9G2yvQiFTDSM-8mZ9hAsWik5rQ-9sg1QKdKlqZvfvUgKQcQ9ZuVAR4hE5a9VWHzuxNiwK9s0S4okKFR1vMF1UhGu2iefQfDVTXxlaT6sDqAcKqPqCfXg70Nkle4SIG-YlCS0iQempLY0eumYK6jxJgfnja6KEKRrOnmolH8Nefk7hE1CkW_uFr8jcB72vSn0Bs7AESYZzly7oaxn"/>
+</div>
+</header>
+<!-- Main Content (Active Session Underlay) -->
+<main class="mt-16 mb-24 px-4 flex-grow">
+<!-- Status Alarm Header (Contextual Warning) -->
+<div class="mx-[-1rem] px-4 py-3 bg-indigo-50 text-primary flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined">info</span>
+<p class="text-[13px] font-medium">Session active for ABC-1234. Auto-renew is ON.</p>
+</div>
+<!-- Active Session Card -->
+<section class="bg-surface-container-highest rounded-xl p-8 mb-6 relative overflow-hidden">
+<div class="flex justify-between items-start mb-8">
+<div>
+<span class="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant mb-1 block">Active Session</span>
+<h2 class="text-4xl font-black tracking-tighter text-primary">ABC-1234</h2>
+</div>
+<div class="bg-white/80 backdrop-blur-xl px-4 py-2 rounded-xl shadow-sm border border-white/20">
+<span class="text-[10px] uppercase tracking-widest font-bold text-primary block text-center mb-1">Time Left</span>
+<span class="text-2xl font-mono font-bold text-primary tracking-tight">01:42:15</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl">
+<span class="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant block mb-1">Location</span>
+<span class="text-sm font-bold text-primary">Zone 4052 • Metro Center</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl">
+<span class="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant block mb-1">Rate</span>
+<span class="text-sm font-bold text-primary">$4.50 / hour</span>
+</div>
+</div>
+</section>
+<!-- Bento Grid Stats -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between h-32">
+<span class="material-symbols-outlined text-tertiary-container">receipt_long</span>
+<span class="text-xs font-medium text-on-surface-variant">Current Cost: $9.00</span>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between h-32">
+<span class="material-symbols-outlined text-primary">autorenew</span>
+<span class="text-xs font-medium text-on-surface-variant">Next Auto-Renew: 11:30 PM</span>
+</div>
+</div>
+</main>
+<!-- Modal Overlay (Stop Parking Confirmation) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm">
+<div class="bg-surface-container-lowest w-full max-w-sm rounded-xl overflow-hidden shadow-[0_12px_24px_rgba(0,0,0,0.12)]">
+<!-- Header/Alert Stripe -->
+<div class="h-1.5 w-full bg-secondary"></div>
+<div class="p-8">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">warning</span>
+<h3 class="text-2xl font-black tracking-tight text-on-surface">Stop Parking?</h3>
+</div>
+<p class="text-on-surface-variant leading-relaxed mb-8 text-[15px]">
+                    Are you sure you want to stop automated parking for <span class="font-bold text-on-surface">ABC-1234</span>? Future renewals will stop, but the current 2-hour registration remains valid until <span class="font-bold text-on-surface">11:30 PM</span>.
+                </p>
+<div class="flex flex-col gap-3">
+<!-- Primary Action -->
+<button class="w-full h-14 bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-xl transition-all duration-300 ease-in-out active:scale-95 shadow-lg shadow-primary/10">
+                        Stop Parking
+                    </button>
+<!-- Secondary Action -->
+<button class="w-full h-14 bg-surface-container text-on-surface-variant font-bold rounded-xl hover:bg-surface-container-high transition-colors active:scale-95">
+                        Cancel
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 pb-6 pt-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">local_parking</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-widest mt-1">Park</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 rounded-xl px-4 py-2 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-widest mt-1">Sessions</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">directions_car</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-widest mt-1">Vehicles</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2 transition-transform duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[11px] font-medium uppercase tracking-widest mt-1">Account</span>
+</a>
+</nav>
+</body></html>

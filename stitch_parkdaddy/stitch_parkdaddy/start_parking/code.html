@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed-variant": "#005048",
+              "inverse-on-surface": "#f0f0f2",
+              "primary": "#000666",
+              "on-error": "#ffffff",
+              "on-surface": "#1a1c1d",
+              "tertiary": "#00201c",
+              "surface-container-high": "#e8e8ea",
+              "primary-container": "#1a237e",
+              "tertiary-container": "#003731",
+              "on-background": "#1a1c1d",
+              "surface-container-highest": "#e2e2e4",
+              "on-primary-fixed": "#000767",
+              "secondary-fixed": "#ffdad6",
+              "outline-variant": "#c6c5d4",
+              "background": "#f9f9fb",
+              "surface-tint": "#4c56af",
+              "tertiary-fixed-dim": "#70d8c8",
+              "on-secondary-fixed-variant": "#930010",
+              "primary-fixed": "#e0e0ff",
+              "on-primary-container": "#8690ee",
+              "primary-fixed-dim": "#bdc2ff",
+              "secondary-fixed-dim": "#ffb3ac",
+              "on-tertiary-container": "#3ba899",
+              "error": "#ba1a1a",
+              "error-container": "#ffdad6",
+              "outline": "#767683",
+              "tertiary-fixed": "#8df5e4",
+              "on-secondary-fixed": "#410003",
+              "on-surface-variant": "#454652",
+              "on-secondary": "#ffffff",
+              "surface": "#f9f9fb",
+              "surface-container-low": "#f3f3f5",
+              "inverse-primary": "#bdc2ff",
+              "secondary-container": "#da3433",
+              "on-tertiary-fixed": "#00201c",
+              "surface-container": "#eeeef0",
+              "surface-container-lowest": "#ffffff",
+              "on-primary-fixed-variant": "#343d96",
+              "surface-bright": "#f9f9fb",
+              "secondary": "#b6171e",
+              "on-primary": "#ffffff",
+              "on-secondary-container": "#fffbff",
+              "on-error-container": "#93000a",
+              "on-tertiary": "#ffffff",
+              "surface-dim": "#d9dadc",
+              "inverse-surface": "#2f3132",
+              "surface-variant": "#e2e2e4"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-fixed selection:text-primary">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#f9f9fb] dark:bg-slate-900">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#000666] dark:text-indigo-400">arrow_back</span>
+<span class="font-headline font-black text-xl tracking-tight text-[#000666] dark:text-indigo-200">ParkAssist</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Close up portrait of a professional man in a business suit with soft natural lighting and neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3ktD7wMa2xXVc1JcpzCh37ejw3YIXR2CqNLqNAB7sIbj3aAQouQPxCotcUU_9anZE0CmrDtHu7YjMAfdtkSFlXV3EJhmLDYtC5v31s2QY2J-PBDBqe9rAfg2Jss1BFIriGT3jaErFFSMA0q-EzrpfnOhgFjuEEjdevA4EClgbLfmyt7lsVAcmqgCaEi_KkBEc_8yAm0TzBkeyudTPASM2UhuiBbSz3e-aOrWqjr-pUTvSDwoRw_bbaW7cg5IsKAacuBgqwYmaJAQq"/>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-xl mx-auto">
+<!-- Section: Vehicle Identity -->
+<section class="space-y-6">
+<div class="space-y-1">
+<span class="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/70">Vehicle Identity</span>
+<h1 class="text-3xl font-black text-primary tracking-tight">Start Parking</h1>
+</div>
+<!-- License Plate Input (Hero Element) -->
+<div class="bg-surface-container rounded-xl p-1 transition-all duration-300 focus-within:ring-2 focus-within:ring-surface-tint/20">
+<div class="bg-surface-container-lowest rounded-lg p-6 space-y-2 shadow-sm">
+<label class="block text-[10px] font-bold uppercase tracking-wider text-outline" for="plate">License Plate Number</label>
+<input class="w-full border-none p-0 focus:ring-0 text-4xl font-black uppercase tracking-widest text-primary placeholder:text-surface-container-highest" id="plate" placeholder="ABC-1234" type="text"/>
+</div>
+</div>
+<!-- Optional Fields Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low rounded-xl p-4 space-y-1">
+<label class="block text-[10px] font-bold uppercase tracking-wider text-outline">Make &amp; Model</label>
+<input class="bg-transparent border-none p-0 focus:ring-0 text-sm font-semibold w-full placeholder:text-on-surface-variant/40" placeholder="Tesla Model 3" type="text"/>
+</div>
+<div class="bg-surface-container-low rounded-xl p-4 space-y-1">
+<label class="block text-[10px] font-bold uppercase tracking-wider text-outline">Vehicle Color</label>
+<input class="bg-transparent border-none p-0 focus:ring-0 text-sm font-semibold w-full placeholder:text-on-surface-variant/40" placeholder="Midnight Silver" type="text"/>
+</div>
+</div>
+</section>
+<!-- Section: Duration Selection -->
+<section class="mt-10 space-y-6">
+<div class="flex items-end justify-between">
+<div class="space-y-1">
+<span class="text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/70">Duration</span>
+<h2 class="text-xl font-bold text-primary tracking-tight">How long?</h2>
+</div>
+<span class="text-[10px] font-bold text-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">FAST SELECTION</span>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<!-- Preset Buttons -->
+<button class="h-16 flex items-center justify-center bg-surface-container-high rounded-lg font-bold text-on-surface hover:bg-surface-container-highest active:scale-95 transition-all">2h</button>
+<button class="h-16 flex items-center justify-center bg-primary text-on-primary rounded-lg font-black shadow-lg shadow-primary/20 active:scale-95 transition-all ring-2 ring-primary ring-offset-2">4h</button>
+<button class="h-16 flex items-center justify-center bg-surface-container-high rounded-lg font-bold text-on-surface hover:bg-surface-container-highest active:scale-95 transition-all">8h</button>
+<button class="h-16 flex items-center justify-center bg-surface-container-high rounded-lg font-bold text-on-surface hover:bg-surface-container-highest active:scale-95 transition-all">12h</button>
+<button class="h-16 flex items-center justify-center bg-surface-container-high rounded-lg font-bold text-on-surface hover:bg-surface-container-highest active:scale-95 transition-all">24h</button>
+<!-- Special Overnight Preset -->
+<button class="h-16 relative flex flex-col items-center justify-center overflow-hidden bg-surface-container-lowest border-2 border-primary-container rounded-lg group active:scale-95 transition-all">
+<div class="absolute inset-0 bg-primary-container/5 group-hover:bg-primary-container/10"></div>
+<span class="relative z-10 text-[10px] font-black uppercase text-primary-container tracking-tighter">Smart</span>
+<span class="relative z-10 text-xs font-black text-primary-container">Overnight</span>
+<span class="material-symbols-outlined absolute -right-2 -bottom-2 text-primary-container/10 text-4xl" style="font-variation-settings: 'FILL' 1;">bedtime</span>
+</button>
+</div>
+</section>
+<!-- Dynamic Summary Component -->
+<section class="mt-10 p-6 bg-surface-container-highest rounded-2xl relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl">update</span>
+</div>
+<div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="space-y-1">
+<p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">Estimated end time</p>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-black text-primary">11:30 PM</span>
+<span class="text-xs font-medium text-on-surface-variant">(Today)</span>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-3 py-2 rounded-xl border border-outline-variant/30">
+<span class="material-symbols-outlined text-tertiary-container text-sm">autorenew</span>
+<span class="text-[11px] font-bold text-tertiary-container">4 renewals included</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Fixed Action Bar -->
+<footer class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-surface-container-highest px-6 pt-4 pb-8 z-50">
+<div class="max-w-xl mx-auto flex flex-col gap-4">
+<button class="w-full h-14 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-xl font-black text-lg shadow-xl shadow-primary/25 active:scale-95 transition-all flex items-center justify-center gap-3">
+                Confirm &amp; Start
+                <span class="material-symbols-outlined">bolt</span>
+</button>
+<p class="text-center text-[10px] text-outline font-medium">By starting, you agree to our Terms of Service and Parking Bylaws.</p>
+</div>
+</footer>
+<!-- Bottom Navigation (Mobile Only Shell) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-[#f9f9fb]/80 dark:bg-slate-900/80 backdrop-blur-md rounded-t-3xl border-t border-[#e2e2e4] dark:border-slate-800 shadow-[0_-4px_24px_rgba(0,0,0,0.04)] pointer-events-none opacity-0">
+<!-- Hidden as per shell visibility rule: focus is on task-focused flow -->
+</nav>
+</body></html>

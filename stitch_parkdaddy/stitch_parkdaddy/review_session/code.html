@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Review Session - ParkAssist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-high": "#e8e8ea",
+              "secondary-fixed-dim": "#ffb3ac",
+              "surface-dim": "#d9dadc",
+              "surface-container-highest": "#e2e2e4",
+              "on-primary-container": "#8690ee",
+              "outline-variant": "#c6c5d4",
+              "on-secondary": "#ffffff",
+              "secondary": "#b6171e",
+              "on-secondary-fixed": "#410003",
+              "secondary-fixed": "#ffdad6",
+              "on-primary-fixed-variant": "#343d96",
+              "surface-tint": "#4c56af",
+              "tertiary-fixed": "#8df5e4",
+              "background": "#f9f9fb",
+              "secondary-container": "#da3433",
+              "inverse-primary": "#bdc2ff",
+              "tertiary-container": "#003731",
+              "tertiary": "#00201c",
+              "primary-fixed-dim": "#bdc2ff",
+              "surface-container-lowest": "#ffffff",
+              "outline": "#767683",
+              "primary-fixed": "#e0e0ff",
+              "on-tertiary-container": "#3ba899",
+              "surface-container": "#eeeef0",
+              "primary-container": "#1a237e",
+              "surface-bright": "#f9f9fb",
+              "on-primary": "#ffffff",
+              "inverse-on-surface": "#f0f0f2",
+              "tertiary-fixed-dim": "#70d8c8",
+              "on-error-container": "#93000a",
+              "on-error": "#ffffff",
+              "surface-container-low": "#f3f3f5",
+              "on-secondary-container": "#fffbff",
+              "on-tertiary": "#ffffff",
+              "surface-variant": "#e2e2e4",
+              "on-surface-variant": "#454652",
+              "on-secondary-fixed-variant": "#930010",
+              "on-background": "#1a1c1d",
+              "inverse-surface": "#2f3132",
+              "on-primary-fixed": "#000767",
+              "on-tertiary-fixed-variant": "#005048",
+              "surface": "#f9f9fb",
+              "on-surface": "#1a1c1d",
+              "on-tertiary-fixed": "#00201c",
+              "error": "#ba1a1a",
+              "primary": "#000666",
+              "error-container": "#ffdad6"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-pill {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky z-50 bg-slate-50 dark:bg-slate-950 flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-indigo-900 dark:text-indigo-300">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-indigo-950 dark:text-white font-black tracking-tighter text-lg font-sans">Review Session</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors px-3 py-1 rounded-xl text-sm">Cancel</button>
+</div>
+</header>
+<main class="max-w-md mx-auto px-6 pt-6 pb-32 space-y-6">
+<!-- Hero Confirmation Card -->
+<section class="bg-surface-container-highest rounded-xl p-8 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<div class="glass-pill px-4 py-2 rounded-full border border-outline-variant/15 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="timer">timer</span>
+<span class="text-[11px] font-bold uppercase tracking-wider text-on-surface">Validating</span>
+</div>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant">Confirmed Vehicle</span>
+<div class="text-4xl font-black tracking-tighter text-primary">ABC-1234</div>
+</div>
+<div class="mt-8 grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<span class="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Duration</span>
+<p class="text-lg font-bold text-on-surface">8 hours</p>
+</div>
+<div class="space-y-1">
+<span class="text-[10px] font-bold uppercase tracking-[0.1em] text-on-surface-variant">Ends At</span>
+<p class="text-lg font-bold text-on-surface">11:30 PM</p>
+</div>
+</div>
+</section>
+<!-- Bento Grid Details -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Zone Card -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between aspect-square">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="location_on">location_on</span>
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Zone</span>
+<h3 class="text-2xl font-extrabold text-primary">622</h3>
+</div>
+</div>
+<!-- Renewals Card -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between aspect-square">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-3xl" data-icon="sync" style="font-variation-settings: 'FILL' 1;">sync</span>
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Renewals</span>
+<h3 class="text-2xl font-extrabold text-on-surface">4 Count</h3>
+</div>
+</div>
+</div>
+<!-- Resident Code Section -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" data-icon="home_pin">home_pin</span>
+</div>
+<div>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Resident Code</span>
+<p class="text-lg font-bold font-mono tracking-wider text-on-surface">MTDJR7</p>
+</div>
+</div>
+<button class="text-primary font-bold text-sm">Edit</button>
+</div>
+<!-- Trust Note -->
+<div class="flex gap-4 p-4 rounded-xl bg-tertiary-fixed/10">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant" data-icon="info">info</span>
+<p class="text-sm leading-relaxed text-on-tertiary-fixed-variant font-medium">
+                Parking will auto-renew every 2 hours until the selected time. You will be notified 15 minutes prior to each renewal.
+            </p>
+</div>
+<!-- Action Buttons -->
+<div class="pt-4 space-y-4">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white py-5 rounded-xl font-bold text-lg shadow-[0_12px_24px_rgba(0,6,102,0.15)] active:scale-98 transition-all">
+                Confirm &amp; Start Session
+            </button>
+<button class="w-full bg-surface-container-high text-on-surface py-4 rounded-xl font-bold active:scale-98 transition-all">
+                Change Duration
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-8 pt-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+<a class="flex flex-col items-center justify-center bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 rounded-2xl px-5 py-2 scale-98 active:duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="local_parking" style="font-variation-settings: 'FILL' 1;">local_parking</span>
+<span class="text-[11px] font-bold uppercase tracking-wider mt-1">Parking</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-5 py-2 hover:text-indigo-600 dark:hover:text-indigo-300 scale-98 active:duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-[11px] font-bold uppercase tracking-wider mt-1">Activity</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-5 py-2 hover:text-indigo-600 dark:hover:text-indigo-300 scale-98 active:duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="directions_car">directions_car</span>
+<span class="text-[11px] font-bold uppercase tracking-wider mt-1">Vehicles</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-5 py-2 hover:text-indigo-600 dark:hover:text-indigo-300 scale-98 active:duration-75" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[11px] font-bold uppercase tracking-wider mt-1">Account</span>
+</a>
+</nav>
+<!-- Decorative Map Background Element -->
+<div class="fixed inset-0 -z-10 opacity-5 pointer-events-none">
+<img alt="City grid background" class="w-full h-full object-cover" data-alt="abstract minimalist city map wireframe with subtle lines and nodes on off-white background architectural style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5hgKfbWiQpQrmm4-G4_AioTJ2bZkVuGEQEjRPnIYs77M8BZ2XNfeRVvXZhHly8n9Z71-eOBcjAwfw7UnsoEUOuucUgPqXnUqXgnTufvxe0RzaLCsJoapVhAPeY1oxAoFA1dCV5u9srItvBnzxIb9703yxkW2-W4_ZtTi_hhNfIu7hmFZYij5phRbbbnjm3OmAQsbtSL6VqQwE9GHV9ircyo28qkMXVzMnpHf_x1oxKm_y-BlSZAHAWDgACMgRSUSMwgknGySNz7Dn"/>
+</div>
+</body></html>

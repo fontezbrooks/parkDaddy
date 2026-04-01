@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "parkDaddy",
+    "slug": "parkDaddy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "parkdaddy",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f9f9fb"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.parkdaddy.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f9f9fb"
+      },
+      "package": "com.parkdaddy.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#000666"
+        }
+      ]
+    ]
+  }
+}

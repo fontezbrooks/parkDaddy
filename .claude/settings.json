@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "expo-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "expo/skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "expo-deployment@expo-plugins": true
+  }
+}
