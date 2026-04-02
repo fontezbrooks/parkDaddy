@@ -34,8 +34,8 @@ export const safetyNetScan = internalMutation({
       .collect();
 
     for (const session of stuck) {
-      const renewingAt = session.renewingAt ?? 0;
-      if (now - renewingAt > STUCK_THRESHOLD_MS) {
+      if (!session.renewingAt) continue;
+      if (now - session.renewingAt > STUCK_THRESHOLD_MS) {
         await ctx.db.patch(session._id, { status: "active" });
         await ctx.scheduler.runAfter(0, internal.renewal.tick, {
           sessionId: session._id,

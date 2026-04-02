@@ -35,17 +35,30 @@ const BROWSER_HEADERS = {
   "Sec-Fetch-User": "?1",
 };
 
+const EASTERN_TZ = "America/New_York";
+const easternFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: EASTERN_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
 function formatParkDate(date: Date): string {
-  // ParkEaz expects Eastern Time. Convex runs in UTC, so we convert.
-  const eastern = new Date(
-    date.toLocaleString("en-US", { timeZone: "America/New_York" }),
-  );
-  const y = eastern.getFullYear();
-  const m = String(eastern.getMonth() + 1).padStart(2, "0");
-  const d = String(eastern.getDate()).padStart(2, "0");
-  const h = String(eastern.getHours()).padStart(2, "0");
-  const min = String(eastern.getMinutes()).padStart(2, "0");
-  const s = String(eastern.getSeconds()).padStart(2, "0");
+  // ParkEaz expects Eastern Time. Convex runs in UTC, so we convert
+  // using Intl.DateTimeFormat.formatToParts for reliable cross-runtime behavior.
+  const parts = easternFormatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "00";
+  const y = get("year");
+  const m = get("month");
+  const d = get("day");
+  const h = get("hour");
+  const min = get("minute");
+  const s = get("second");
   // Use a space separator, NOT "+". URLSearchParams encodes space as "+" in
   // form data, which PHP decodes back to space. A literal "+" would be encoded
   // as "%2B", which PHP interprets as a timezone offset — breaking the date.
@@ -53,8 +66,21 @@ function formatParkDate(date: Date): string {
 }
 
 function parseParkDate(dateStr: string): number {
+  // ParkEaz returns Eastern Time strings. Parse explicitly as Eastern
+  // to avoid UTC misinterpretation on the Convex server.
   const cleaned = dateStr.replace("+", " ").trim();
-  return new Date(cleaned).getTime();
+  const withTz = cleaned.includes("T") ? cleaned : cleaned.replace(" ", "T");
+  // Treat the string as UTC, then shift by the Eastern offset
+  const asUtc = new Date(withTz + "Z");
+  const easternOffset = getEasternOffsetMs(asUtc);
+  return asUtc.getTime() - easternOffset;
+}
+
+function getEasternOffsetMs(date: Date): number {
+  // Compute the UTC offset for America/New_York at a given instant
+  const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
+  const etStr = date.toLocaleString("en-US", { timeZone: EASTERN_TZ });
+  return new Date(utcStr).getTime() - new Date(etStr).getTime();
 }
 
 function getCookieHeader(jar: CookieJar, url: string): string {
@@ -107,7 +133,6 @@ export const renewalAction = internalAction({
 
       console.log(`[ParkEaz] Step 0 form page: HTTP ${formRes.status}`, {
         url: formUrl,
-        cookies: getCookieHeader(jar, BASE_URL),
         bodyLength: formHtml.length,
         hasForm: formHtml.includes("<form"),
       });
@@ -208,7 +233,7 @@ export const renewalAction = internalAction({
       console.log(`[ParkEaz] Step 1 form action: ${chargeUrl}`);
       console.log(
         `[ParkEaz] Step 1 extracted form fields:`,
-        JSON.stringify(formFields),
+        Object.keys(formFields),
       );
 
       // Override fields that may have wrong values from the form
@@ -222,8 +247,8 @@ export const renewalAction = internalAction({
       }
 
       console.log(
-        `[ParkEaz] Step 2 /charge request body:`,
-        chargeBody.toString(),
+        `[ParkEaz] Step 2 /charge request fields:`,
+        Array.from(chargeBody.keys()),
       );
 
       const chargeRes = await fetch(chargeUrl, {

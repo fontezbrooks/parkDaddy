@@ -24,8 +24,15 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
       }
-    } catch {
-      // User cancelled or error — silently reset
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message)
+          : undefined;
+      console.error(
+        "Google SSO sign-in failed or was cancelled:",
+        message ?? "(no error message)",
+      );
     } finally {
       setLoading(false);
     }

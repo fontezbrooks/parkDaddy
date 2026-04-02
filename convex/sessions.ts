@@ -61,7 +61,14 @@ export const listHistory = query({
       )
       .collect();
 
-    return [...completed, ...cancelled].sort(
+    const failed = await ctx.db
+      .query("sessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", user._id).eq("status", "failed"),
+      )
+      .collect();
+
+    return [...completed, ...cancelled, ...failed].sort(
       (a, b) => b._creationTime - a._creationTime,
     );
   },

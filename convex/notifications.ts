@@ -101,25 +101,37 @@ export const push = internalAction({
         body: JSON.stringify(messages),
       });
 
-      if (response.ok) {
-        const body = (await response.json()) as {
-          data: Array<{ status: string; details?: { error?: string } }>;
-        };
-        const deadTokens: string[] = [];
-        body.data.forEach((ticket, i) => {
-          if (
-            ticket.status === "error" &&
-            ticket.details?.error === "DeviceNotRegistered"
-          ) {
-            deadTokens.push(tokens[i].token);
-          }
+      if (!response.ok) {
+        const responseText = await response.text().catch(() => "(unreadable)");
+        console.error("Expo push API returned non-OK response", {
+          status: response.status,
+          body: responseText,
         });
-        if (deadTokens.length > 0) {
-          await ctx.runMutation(internal.notificationsHelpers.pruneDeadTokens, {
-            userId: args.userId,
-            tokens: deadTokens,
+        return;
+      }
+
+      const body = (await response.json()) as {
+        data: Array<{ status: string; details?: { error?: string } }>;
+      };
+      const deadTokens: string[] = [];
+      body.data.forEach((ticket, i) => {
+        if (
+          ticket.status === "error" &&
+          ticket.details?.error === "DeviceNotRegistered"
+        ) {
+          deadTokens.push(tokens[i].token);
+        } else if (ticket.status === "error") {
+          console.error("Expo push ticket error", {
+            index: i,
+            error: ticket.details?.error,
           });
         }
+      });
+      if (deadTokens.length > 0) {
+        await ctx.runMutation(internal.notificationsHelpers.pruneDeadTokens, {
+          userId: args.userId,
+          tokens: deadTokens,
+        });
       }
     } catch (error) {
       console.error("Push notification failed:", error);

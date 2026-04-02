@@ -29,7 +29,7 @@ export const tick = internalMutation({
     }
 
     console.log(
-      `[Renewal] tick: session ${session._id}, status=${session.status}, plate=${session.plate}`,
+      `[Renewal] tick: session=${session._id}, status=${session.status}`,
     );
 
     if (TERMINAL_STATES.includes(session.status)) {

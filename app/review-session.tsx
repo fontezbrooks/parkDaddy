@@ -23,7 +23,9 @@ export default function ReviewSessionScreen() {
   const durationMinutes = parseInt(params.durationMinutes ?? "", 10);
   const isValid =
     !isNaN(durationMinutes) && durationMinutes >= 1 && durationMinutes <= 1440;
-  const durationHours = Math.round((durationMinutes / 60) * 10) / 10;
+  const durationHours = isValid
+    ? Math.round((durationMinutes / 60) * 10) / 10
+    : 0;
   const renewalCount = isValid ? Math.ceil(durationMinutes / 120) : 0;
   const estimatedEnd = isValid
     ? new Date(Date.now() + durationMinutes * 60 * 1000)
