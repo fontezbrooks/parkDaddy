@@ -4,7 +4,8 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { CookieJar } from "tough-cookie";
-import fetch, { Response } from "node-fetch";
+import fetch from "node-fetch";
+import type { Response } from "node-fetch";
 
 const BASE_URL = "https://paid.parkeaz.com";
 const ZONE = "622";
@@ -35,13 +36,20 @@ const BROWSER_HEADERS = {
 };
 
 function formatParkDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const h = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  const s = String(date.getSeconds()).padStart(2, "0");
-  return `${y}-${m}-${d}+${h}:${min}:${s}`;
+  // ParkEaz expects Eastern Time. Convex runs in UTC, so we convert.
+  const eastern = new Date(
+    date.toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
+  const y = eastern.getFullYear();
+  const m = String(eastern.getMonth() + 1).padStart(2, "0");
+  const d = String(eastern.getDate()).padStart(2, "0");
+  const h = String(eastern.getHours()).padStart(2, "0");
+  const min = String(eastern.getMinutes()).padStart(2, "0");
+  const s = String(eastern.getSeconds()).padStart(2, "0");
+  // Use a space separator, NOT "+". URLSearchParams encodes space as "+" in
+  // form data, which PHP decodes back to space. A literal "+" would be encoded
+  // as "%2B", which PHP interprets as a timezone offset — breaking the date.
+  return `${y}-${m}-${d} ${h}:${min}:${s}`;
 }
 
 function parseParkDate(dateStr: string): number {
@@ -70,8 +78,15 @@ export const renewalAction = internalAction({
     mobile: v.string(),
   },
   handler: async (ctx, args) => {
+    console.log(
+      `[ParkEaz] renewalAction started for plate=${args.plate}, session=${args.sessionId}`,
+    );
+
     const guestCode = process.env.PARKEAZ_GUEST_CODE;
     if (!guestCode) throw new Error("PARKEAZ_GUEST_CODE env var is not set");
+
+    // ParkEaz expects digits only for mobile (e.g. "4044372480")
+    const mobileDigits = args.mobile.replace(/\D/g, "");
 
     try {
       const jar = new CookieJar();
@@ -121,7 +136,7 @@ export const renewalAction = internalAction({
       checkoutBody.append("product", PRODUCT);
       checkoutBody.append("guestcode", guestCode);
       checkoutBody.append("couponcode", "");
-      checkoutBody.append("mobile", args.mobile);
+      checkoutBody.append("mobile", mobileDigits);
       checkoutBody.append("email", args.email);
       checkoutBody.append("firstname", args.firstName);
       checkoutBody.append("lastname", args.lastName);
@@ -134,6 +149,7 @@ export const renewalAction = internalAction({
       checkoutBody.append("plate", args.plate);
       checkoutBody.append("parkstart", parkstart);
       checkoutBody.append("extension", "0");
+      checkoutBody.append("parkallowtextalert", "On");
 
       const checkoutRes = await fetch(`${BASE_URL}/checkout`, {
         method: "POST",
@@ -154,7 +170,6 @@ export const renewalAction = internalAction({
         parkstart,
         finalUrl: checkoutRes.url,
         bodyLength: checkoutHtml.length,
-        bodyPreview: checkoutHtml.slice(0, 500),
       });
 
       if (checkoutRes.status >= 400) {
@@ -163,45 +178,62 @@ export const renewalAction = internalAction({
         );
       }
 
-      // Step 2: POST /charge — confirm the transaction
-      const chargeBody = new URLSearchParams();
-      chargeBody.append("parkstart", parkstart);
-      chargeBody.append("parkend", parkend);
-      chargeBody.append("zone", ZONE);
-      chargeBody.append("zoneid", ZONE_ID);
-      chargeBody.append("propertyid", PROPERTY_ID);
-      chargeBody.append("propertyname", PROPERTY_NAME);
-      chargeBody.append("plate", args.plate);
-      chargeBody.append("tenantid", "");
-      chargeBody.append("email", args.email);
-      chargeBody.append("mobile", args.mobile);
-      chargeBody.append("parkallowtextalert", "On");
-      chargeBody.append("spacenumber", "");
-      chargeBody.append("firstname", args.firstName);
-      chargeBody.append("lastname", args.lastName);
-      chargeBody.append("vehiclemake", "");
-      chargeBody.append("vehiclemodel", "");
-      chargeBody.append("vehiclecolor", "");
-      chargeBody.append("vehiclestate", "");
-      chargeBody.append("product", PRODUCT);
-      chargeBody.append("producttime", PRODUCT_TIME);
-      chargeBody.append("couponid", "0");
-      chargeBody.append("coupondiscount", "0");
-      chargeBody.append("couponpriceadded", "0");
-      chargeBody.append("productprice", "0.00");
-      chargeBody.append("transactionfee", "0");
-      chargeBody.append("totalcharge", "0");
-      chargeBody.append("stripeprice", "0");
-      chargeBody.append("extension", "0");
-      chargeBody.append("guestcode", guestCode);
+      // Parse the checkout response to extract the form that submits to /charge.
+      // The browser renders this page and the user clicks "Confirm" which submits
+      // the form. We need to extract all hidden inputs and the form action.
+      const formActionMatch = checkoutHtml.match(
+        /<form[^>]*action=["']([^"']+)["'][^>]*>/i,
+      );
+      const chargeUrl = formActionMatch
+        ? new URL(formActionMatch[1], BASE_URL).href
+        : `${BASE_URL}/charge`;
 
-      const chargeRes = await fetch(`${BASE_URL}/charge`, {
+      // Extract all <input> fields (hidden and otherwise) from the form
+      const inputRegex =
+        /<input[^>]*name=["']([^"']+)["'][^>]*value=["']([^"']*)["'][^>]*>/gi;
+      const formFields: Record<string, string> = {};
+      let match;
+      while ((match = inputRegex.exec(checkoutHtml)) !== null) {
+        formFields[match[1]] = match[2];
+      }
+      // Also try value-before-name pattern
+      const inputRegex2 =
+        /<input[^>]*value=["']([^"']*)["'][^>]*name=["']([^"']+)["'][^>]*>/gi;
+      while ((match = inputRegex2.exec(checkoutHtml)) !== null) {
+        if (!(match[2] in formFields)) {
+          formFields[match[2]] = match[1];
+        }
+      }
+
+      console.log(`[ParkEaz] Step 1 form action: ${chargeUrl}`);
+      console.log(
+        `[ParkEaz] Step 1 extracted form fields:`,
+        JSON.stringify(formFields),
+      );
+
+      // Override fields that may have wrong values from the form
+      formFields["parkallowtextalert"] = "On";
+      formFields["mobile"] = mobileDigits;
+
+      // Build charge body from extracted form fields
+      const chargeBody = new URLSearchParams();
+      for (const [key, value] of Object.entries(formFields)) {
+        chargeBody.append(key, value);
+      }
+
+      console.log(
+        `[ParkEaz] Step 2 /charge request body:`,
+        chargeBody.toString(),
+      );
+
+      const chargeRes = await fetch(chargeUrl, {
         method: "POST",
         headers: {
           ...BROWSER_HEADERS,
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: getCookieHeader(jar, BASE_URL),
-          Origin: "null",
+          Origin: BASE_URL,
+          Referer: `${BASE_URL}/checkout`,
         },
         body: chargeBody.toString(),
         redirect: "follow",

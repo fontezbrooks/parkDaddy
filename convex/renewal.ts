@@ -23,9 +23,21 @@ export const tick = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
+    if (!session) {
+      console.log(`[Renewal] tick: session ${args.sessionId} not found`);
+      return;
+    }
 
-    if (TERMINAL_STATES.includes(session.status)) return;
+    console.log(
+      `[Renewal] tick: session ${session._id}, status=${session.status}, plate=${session.plate}`,
+    );
+
+    if (TERMINAL_STATES.includes(session.status)) {
+      console.log(
+        `[Renewal] tick: skipping — terminal state "${session.status}"`,
+      );
+      return;
+    }
 
     // If already past desired end and we have coverage, complete
     if (session.lastParkEnd && session.lastParkEnd >= session.desiredEndTime) {
