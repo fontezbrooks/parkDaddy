@@ -5,6 +5,7 @@ import { useSignIn } from "@clerk/clerk-expo";
 import { router } from "expo-router";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
+import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -38,9 +39,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Text style={[typography.bodyLg, { color: colors.primary }]}>
-          Back
-        </Text>
+        <Text style={[typography.bodyLg, { color: colors.primary }]}>Back</Text>
       </Pressable>
 
       <Text style={[typography.headlineLg, styles.title]}>Sign In</Text>
@@ -77,6 +76,18 @@ export default function SignInScreen() {
           onPress={handleSignIn}
           disabled={loading || !email || !password}
         />
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text
+            style={[typography.labelMd, { color: colors.onSurfaceVariant }]}
+          >
+            OR
+          </Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <GoogleSignInButton label="Sign in with Google" />
       </View>
 
       <Pressable
@@ -84,8 +95,7 @@ export default function SignInScreen() {
         style={styles.switchLink}
       >
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-          Don't have an account?{" "}
-          <Text style={{ color: colors.primary }}>Sign Up</Text>
+          No account? <Text style={{ color: colors.primary }}>Sign Up</Text>
         </Text>
       </Pressable>
     </SafeAreaView>
@@ -117,6 +127,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_400Regular",
     color: colors.onSurface,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceContainerHigh,
   },
   switchLink: {
     alignItems: "center",

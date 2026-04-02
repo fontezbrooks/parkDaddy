@@ -1,11 +1,16 @@
-import js from "@eslint/js";
-import globals from "globals";
-import tseslint from "typescript-eslint";
-import pluginReact from "eslint-plugin-react";
-import { defineConfig } from "eslint/config";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
-export default defineConfig([
-  { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.node } },
-  tseslint.configs.recommended,
-  pluginReact.configs.flat.recommended,
-]);
+const expoFlat = require("eslint-config-expo/flat");
+
+export default [
+  ...expoFlat,
+  {
+    ignores: [
+      "node_modules/",
+      ".expo/",
+      "convex/_generated/",
+      "dist/",
+    ],
+  },
+];

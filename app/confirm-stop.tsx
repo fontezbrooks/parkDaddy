@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -10,17 +10,30 @@ export default function ConfirmStopScreen() {
   const session = useQuery(api.sessions.getActive);
   const cancelSession = useMutation(api.sessions.cancel);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleStop = useCallback(async () => {
     if (!session) return;
     setLoading(true);
+    setError("");
     try {
       await cancelSession({ sessionId: session._id });
       router.dismissAll();
-    } catch {
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to stop parking session",
+      );
       setLoading(false);
     }
   }, [session, cancelSession]);
+
+  if (session === undefined) {
+    return (
+      <View style={styles.overlay}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   const validUntil = session?.lastParkEnd
     ? new Date(session.lastParkEnd).toLocaleTimeString([], {
@@ -53,10 +66,16 @@ export default function ConfirmStopScreen() {
             remains valid until {validUntil}.
           </Text>
 
+          {error ? (
+            <Text style={[typography.bodySm, { color: colors.secondary }]}>
+              {error}
+            </Text>
+          ) : null}
+
           <GradientButton
             title={loading ? "Stopping..." : "Stop Parking"}
             onPress={handleStop}
-            disabled={loading}
+            disabled={loading || !session}
           />
           <Pressable onPress={() => router.back()}>
             <Text

@@ -13,11 +13,12 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   };
 
   return (
-    <View
-      style={[styles.iconContainer, focused && styles.iconContainerActive]}
-    >
+    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
       <Text
-        style={[styles.iconText, { color: focused ? colors.primary : colors.onSurfaceVariant }]}
+        style={[
+          styles.iconText,
+          { color: focused ? colors.primary : colors.onSurfaceVariant },
+        ]}
       >
         {icons[name] ?? "?"}
       </Text>
@@ -31,6 +32,8 @@ export default function TabsLayout() {
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/welcome" />;
+  // undefined = query still loading, null = no profile exists
+  if (profile === undefined) return null;
   if (profile === null) return <Redirect href="/(auth)/profile-setup" />;
 
   return (

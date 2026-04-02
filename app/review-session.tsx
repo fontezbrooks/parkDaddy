@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { colors, typography, spacing, radius } from "@/src/theme";
+import { colors, typography, spacing } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
 
@@ -20,10 +20,16 @@ export default function ReviewSessionScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const durationMinutes = parseInt(params.durationMinutes, 10);
-  const durationHours = Math.round(durationMinutes / 60);
-  const renewalCount = Math.ceil(durationMinutes / 120);
-  const estimatedEnd = new Date(Date.now() + durationMinutes * 60 * 1000);
+  const durationMinutes = parseInt(params.durationMinutes ?? "", 10);
+  const isValid =
+    !isNaN(durationMinutes) && durationMinutes >= 1 && durationMinutes <= 1440;
+  const durationHours = isValid
+    ? Math.round((durationMinutes / 60) * 10) / 10
+    : 0;
+  const renewalCount = isValid ? Math.ceil(durationMinutes / 120) : 0;
+  const estimatedEnd = isValid
+    ? new Date(Date.now() + durationMinutes * 60 * 1000)
+    : null;
 
   const handleConfirm = useCallback(async () => {
     setLoading(true);
@@ -47,9 +53,14 @@ export default function ReviewSessionScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.plateHero}>
-          <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+          <Text
+            style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+          >
             CONFIRMED VEHICLE
           </Text>
           <Text style={[typography.displaySm, { color: colors.primary }]}>
@@ -59,7 +70,9 @@ export default function ReviewSessionScreen() {
 
         <View style={styles.detailsRow}>
           <SurfaceCard level={1} style={styles.detailCard}>
-            <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+            >
               DURATION
             </Text>
             <Text style={[typography.headlineMd, { color: colors.onSurface }]}>
@@ -67,21 +80,27 @@ export default function ReviewSessionScreen() {
             </Text>
           </SurfaceCard>
           <SurfaceCard level={1} style={styles.detailCard}>
-            <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+            >
               ENDS AT
             </Text>
             <Text style={[typography.headlineMd, { color: colors.onSurface }]}>
-              {estimatedEnd.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {estimatedEnd
+                ? estimatedEnd.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "--:--"}
             </Text>
           </SurfaceCard>
         </View>
 
         <View style={styles.detailsRow}>
           <SurfaceCard level={1} style={styles.detailCard}>
-            <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+            >
               ZONE
             </Text>
             <Text style={[typography.headlineMd, { color: colors.onSurface }]}>
@@ -89,7 +108,9 @@ export default function ReviewSessionScreen() {
             </Text>
           </SurfaceCard>
           <SurfaceCard level={1} style={styles.detailCard}>
-            <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+            >
               RENEWALS
             </Text>
             <Text style={[typography.headlineMd, { color: colors.onSurface }]}>
@@ -116,7 +137,7 @@ export default function ReviewSessionScreen() {
         <GradientButton
           title={loading ? "Starting..." : "Confirm & Start Session"}
           onPress={handleConfirm}
-          disabled={loading}
+          disabled={loading || !isValid}
         />
         <GradientButton
           title="Change Duration"

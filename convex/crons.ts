@@ -6,7 +6,7 @@ const crons = cronJobs();
 crons.interval(
   "renewal safety net",
   { minutes: 30 },
-  internal.cronHandlers.safetyNetScan
+  internal.cronHandlers.safetyNetScan,
 );
 
 export default crons;

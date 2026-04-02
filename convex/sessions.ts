@@ -19,7 +19,7 @@ export const getActive = query({
       const session = await ctx.db
         .query("sessions")
         .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status)
+          q.eq("userId", user._id).eq("status", status),
         )
         .first();
       if (session) {
@@ -50,26 +50,26 @@ export const listHistory = query({
     const completed = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "completed")
+        q.eq("userId", user._id).eq("status", "completed"),
       )
       .collect();
 
     const cancelled = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "cancelled")
+        q.eq("userId", user._id).eq("status", "cancelled"),
       )
       .collect();
 
     const failed = await ctx.db
       .query("sessions")
       .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "failed")
+        q.eq("userId", user._id).eq("status", "failed"),
       )
       .collect();
 
     return [...completed, ...cancelled, ...failed].sort(
-      (a, b) => b._creationTime - a._creationTime
+      (a, b) => b._creationTime - a._creationTime,
     );
   },
 });
@@ -115,12 +115,16 @@ export const create = mutation({
       .unique();
     if (!user) throw new Error("Profile not found. Complete setup first.");
 
+    if (args.durationMinutes < 1 || args.durationMinutes > 1440) {
+      throw new Error("Duration must be between 1 and 1440 minutes");
+    }
+
     // Check for existing active session
     for (const status of ["active", "renewing", "failed"]) {
       const existing = await ctx.db
         .query("sessions")
         .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status)
+          q.eq("userId", user._id).eq("status", status),
         )
         .first();
       if (existing) {
@@ -204,6 +208,10 @@ export const extend = mutation({
       throw new Error("Session is not active");
     }
 
+    if (args.additionalMinutes < 1 || args.additionalMinutes > 1440) {
+      throw new Error("Extension must be between 1 and 1440 minutes");
+    }
+
     const newDesiredEndTime =
       session.desiredEndTime + args.additionalMinutes * 60 * 1000;
 
@@ -223,7 +231,7 @@ export const extend = mutation({
       expiryWarningId = await ctx.scheduler.runAt(
         warningTime,
         internal.notifications.sendExpiryWarning,
-        { sessionId: args.sessionId }
+        { sessionId: args.sessionId },
       );
     }
 
@@ -306,7 +314,6 @@ export const retry = mutation({
     await ctx.db.patch(args.sessionId, {
       status: "active",
       retryCount: 0,
-      parkeazCookieJson: undefined,
       lastError: undefined,
     });
 

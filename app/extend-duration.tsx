@@ -1,5 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
@@ -52,10 +58,28 @@ export default function ExtendDurationScreen() {
     }
   }, [session, selectedMinutes, extendSession]);
 
-  if (!session) {
+  if (session === undefined) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (session === null) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
+        <Text
+          style={[
+            typography.bodyMd,
+            { color: colors.onSurfaceVariant, padding: spacing.lg },
+          ]}
+        >
           No active session
         </Text>
       </SafeAreaView>
@@ -64,7 +88,10 @@ export default function ExtendDurationScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.vehicleSummary}>
           <View style={styles.vehicleHeader}>
             <Text style={[typography.headlineMd, { color: colors.primary }]}>
@@ -82,7 +109,9 @@ export default function ExtendDurationScreen() {
         </View>
 
         <View style={styles.durationSection}>
-          <Text style={[typography.labelMd, { color: colors.onSurfaceVariant }]}>
+          <Text
+            style={[typography.labelMd, { color: colors.onSurfaceVariant }]}
+          >
             SELECT EXTENSION
           </Text>
           <DurationPresetGrid
@@ -94,7 +123,9 @@ export default function ExtendDurationScreen() {
 
         {newEndTime && (
           <View style={styles.impact}>
-            <Text style={[typography.labelSm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+            >
               NEW SESSION END
             </Text>
             <Text style={[typography.displaySm, { color: colors.onSurface }]}>
@@ -103,7 +134,9 @@ export default function ExtendDurationScreen() {
                 minute: "2-digit",
               })}
             </Text>
-            <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
+            >
               Extension includes {additionalRenewals} more automated renewal
               {additionalRenewals !== 1 ? "s" : ""}
             </Text>

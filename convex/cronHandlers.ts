@@ -1,6 +1,8 @@
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+
 export const safetyNetScan = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -10,38 +12,30 @@ export const safetyNetScan = internalMutation({
     const overdue = await ctx.db
       .query("sessions")
       .withIndex("by_next_renewal", (q) =>
-        q.eq("status", "active").lt("nextRenewalAt", now)
+        q.eq("status", "active").lt("nextRenewalAt", now),
       )
       .collect();
 
     for (const session of overdue) {
-      // Only re-trigger if the renewal is significantly overdue (5+ min)
       if (
         session.nextRenewalAt &&
-        now - session.nextRenewalAt > 5 * 60 * 1000
+        now - session.nextRenewalAt > STUCK_THRESHOLD_MS
       ) {
-        console.log(
-          `Safety net: re-triggering renewal for session ${session._id}`
-        );
         await ctx.scheduler.runAfter(0, internal.renewal.tick, {
           sessionId: session._id,
         });
       }
     }
 
-    // Also check renewing sessions stuck for >5 min
+    // Check renewing sessions stuck based on renewingAt timestamp
     const stuck = await ctx.db
       .query("sessions")
       .withIndex("by_status", (q) => q.eq("status", "renewing"))
       .collect();
 
     for (const session of stuck) {
-      // If a session has been "renewing" for more than 5 minutes, re-trigger
-      const stuckDuration = now - session._creationTime;
-      if (stuckDuration > 5 * 60 * 1000 && session.nextRenewalAt && now - session.nextRenewalAt > 5 * 60 * 1000) {
-        console.log(
-          `Safety net: unsticking renewing session ${session._id}`
-        );
+      if (!session.renewingAt) continue;
+      if (now - session.renewingAt > STUCK_THRESHOLD_MS) {
         await ctx.db.patch(session._id, { status: "active" });
         await ctx.scheduler.runAfter(0, internal.renewal.tick, {
           sessionId: session._id,

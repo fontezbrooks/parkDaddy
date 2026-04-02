@@ -36,6 +36,7 @@ export default defineSchema({
     nextRenewalAt: v.optional(v.number()),
     scheduledFunctionId: v.optional(v.id("_scheduled_functions")),
     expiryWarningId: v.optional(v.id("_scheduled_functions")),
+    renewingAt: v.optional(v.number()),
     parkeazCookieJson: v.optional(v.string()),
     retryCount: v.number(),
     lastError: v.optional(v.string()),

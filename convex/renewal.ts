@@ -5,39 +5,65 @@ import { internal } from "./_generated/api";
 const BUFFER_MS = 10 * 60 * 1000; // 10 min safety buffer before parkend
 const EXPIRY_WARNING_MS = 15 * 60 * 1000; // 15 min before desired end
 
+const TERMINAL_STATES = ["cancelled", "completed", "failed"];
+
+async function cancelScheduled(
+  ctx: { scheduler: { cancel: (id: any) => Promise<void> } },
+  id: any,
+) {
+  if (!id) return;
+  try {
+    await ctx.scheduler.cancel(id);
+  } catch {
+    // Already fired or cancelled
+  }
+}
+
 export const tick = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
+    if (!session) {
+      console.log(`[Renewal] tick: session ${args.sessionId} not found`);
+      return;
+    }
 
-    // Guard: don't process terminal states
-    if (["cancelled", "completed"].includes(session.status)) return;
+    console.log(
+      `[Renewal] tick: session=${session._id}, status=${session.status}`,
+    );
+
+    if (TERMINAL_STATES.includes(session.status)) {
+      console.log(
+        `[Renewal] tick: skipping — terminal state "${session.status}"`,
+      );
+      return;
+    }
 
     // If already past desired end and we have coverage, complete
-    if (
-      session.lastParkEnd &&
-      session.lastParkEnd >= session.desiredEndTime
-    ) {
-      await ctx.db.patch(args.sessionId, { status: "completed" });
+    if (session.lastParkEnd && session.lastParkEnd >= session.desiredEndTime) {
+      await cancelScheduled(ctx, session.expiryWarningId);
+      await ctx.db.patch(args.sessionId, {
+        status: "completed",
+        expiryWarningId: undefined,
+      });
       await ctx.db.insert("renewalLogs", {
         sessionId: args.sessionId,
         action: "completed",
       });
-      // Notify user
       await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
         sessionId: args.sessionId,
       });
       return;
     }
 
-    // Mark as renewing
-    await ctx.db.patch(args.sessionId, { status: "renewing" });
+    // Mark as renewing with timestamp
+    await ctx.db.patch(args.sessionId, {
+      status: "renewing",
+      renewingAt: Date.now(),
+    });
 
-    // Schedule the ParkEaz action
     await ctx.scheduler.runAfter(0, internal.parkeaz.renewalAction, {
       sessionId: args.sessionId,
-      cookieJson: session.parkeazCookieJson,
       plate: session.plate,
       firstName: session.firstName,
       lastName: session.lastName,
@@ -53,16 +79,14 @@ export const saveResult = internalMutation({
     parkId: v.string(),
     parkStart: v.number(),
     parkEnd: v.number(),
-    cookieJson: v.string(),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return;
 
-    // Don't update cancelled sessions
-    if (session.status === "cancelled") return;
+    // Guard against all terminal states
+    if (TERMINAL_STATES.includes(session.status)) return;
 
-    // Log renewal
     await ctx.db.insert("renewalLogs", {
       sessionId: args.sessionId,
       action: "renewal",
@@ -73,27 +97,30 @@ export const saveResult = internalMutation({
 
     // Check if parking now covers desired end time
     if (args.parkEnd >= session.desiredEndTime) {
+      await cancelScheduled(ctx, session.expiryWarningId);
       await ctx.db.patch(args.sessionId, {
         status: "completed",
         currentParkId: args.parkId,
         lastParkStart: args.parkStart,
         lastParkEnd: args.parkEnd,
-        parkeazCookieJson: args.cookieJson,
         retryCount: 0,
         lastError: undefined,
         scheduledFunctionId: undefined,
+        expiryWarningId: undefined,
+        renewingAt: undefined,
       });
       await ctx.db.insert("renewalLogs", {
         sessionId: args.sessionId,
         action: "completed",
       });
-      await ctx.scheduler.runAfter(
-        0,
-        internal.notifications.sendSessionEnded,
-        { sessionId: args.sessionId }
-      );
+      await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
+        sessionId: args.sessionId,
+      });
       return;
     }
+
+    // Cancel previous scheduled tick if any
+    await cancelScheduled(ctx, session.scheduledFunctionId);
 
     // Schedule next renewal: 10 min before parkEnd
     const nextRenewalAt = args.parkEnd - BUFFER_MS;
@@ -102,7 +129,7 @@ export const saveResult = internalMutation({
     const scheduledFunctionId = await ctx.scheduler.runAfter(
       delay,
       internal.renewal.tick,
-      { sessionId: args.sessionId }
+      { sessionId: args.sessionId },
     );
 
     // Schedule expiry warning if not already done and within range
@@ -113,7 +140,7 @@ export const saveResult = internalMutation({
         expiryWarningId = await ctx.scheduler.runAt(
           warningTime,
           internal.notifications.sendExpiryWarning,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       }
     }
@@ -125,10 +152,10 @@ export const saveResult = internalMutation({
       lastParkEnd: args.parkEnd,
       nextRenewalAt,
       scheduledFunctionId,
-      parkeazCookieJson: args.cookieJson,
       retryCount: 0,
       lastError: undefined,
       expiryWarningId,
+      renewingAt: undefined,
     });
   },
 });
@@ -142,7 +169,7 @@ export const handleFailure = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return;
 
-    if (session.status === "cancelled") return;
+    if (TERMINAL_STATES.includes(session.status)) return;
 
     const newRetryCount = session.retryCount + 1;
 
@@ -152,38 +179,32 @@ export const handleFailure = internalMutation({
       error: args.error,
     });
 
-    if (newRetryCount <= 3) {
-      // Retry with same cookie, exponential backoff
+    // Cancel any existing scheduled retry before scheduling a new one
+    await cancelScheduled(ctx, session.scheduledFunctionId);
+
+    if (newRetryCount <= 4) {
+      // Retry with exponential backoff (fresh cookies each time)
       const delay = Math.pow(2, newRetryCount) * 5000;
+      const scheduledFunctionId = await ctx.scheduler.runAfter(
+        delay,
+        internal.renewal.tick,
+        { sessionId: args.sessionId },
+      );
       await ctx.db.patch(args.sessionId, {
         retryCount: newRetryCount,
         lastError: args.error,
         status: "renewing",
-      });
-      await ctx.scheduler.runAfter(delay, internal.renewal.tick, {
-        sessionId: args.sessionId,
-      });
-    } else if (newRetryCount === 4) {
-      // Fresh cookie attempt
-      await ctx.db.patch(args.sessionId, {
-        retryCount: newRetryCount,
-        parkeazCookieJson: undefined,
-        lastError: args.error,
-        status: "renewing",
-      });
-      await ctx.scheduler.runAfter(5000, internal.renewal.tick, {
-        sessionId: args.sessionId,
+        scheduledFunctionId,
       });
     } else {
-      // All retries exhausted — mark failed
       await ctx.db.patch(args.sessionId, {
         status: "failed",
         retryCount: newRetryCount,
         lastError: args.error,
         scheduledFunctionId: undefined,
+        renewingAt: undefined,
       });
 
-      // Determine urgency
       const timeToExpiry = session.lastParkEnd
         ? session.lastParkEnd - Date.now()
         : Infinity;
@@ -192,13 +213,13 @@ export const handleFailure = internalMutation({
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.sendUrgentFailure,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       } else {
         await ctx.scheduler.runAfter(
           0,
           internal.notifications.sendRenewalFailure,
-          { sessionId: args.sessionId }
+          { sessionId: args.sessionId },
         );
       }
     }

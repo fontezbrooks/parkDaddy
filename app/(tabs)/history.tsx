@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet, SectionList, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  SectionList,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 
-type SessionItem = NonNullable<ReturnType<typeof useQuery<typeof api.sessions.listHistory>>>[number];
+type SessionItem = NonNullable<
+  ReturnType<typeof useQuery<typeof api.sessions.listHistory>>
+>[number];
 
 function getStatusConfig(status: string) {
   switch (status) {
@@ -48,12 +57,14 @@ function SessionCard({ session }: { session: SessionItem }) {
   const statusConfig = getStatusConfig(session.status);
   const date = new Date(session._creationTime);
   const durationMs = session.desiredEndTime - session._creationTime;
-  const durationHours = Math.round(durationMs / (60 * 60 * 1000) * 10) / 10;
+  const durationHours = Math.round((durationMs / (60 * 60 * 1000)) * 10) / 10;
 
   return (
     <Pressable style={styles.card}>
       <View style={styles.cardLeft}>
-        <View style={[styles.statusDot, { backgroundColor: statusConfig.color }]} />
+        <View
+          style={[styles.statusDot, { backgroundColor: statusConfig.color }]}
+        />
         <View style={styles.cardInfo}>
           <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
             {date.toLocaleDateString("en-US", {
@@ -80,7 +91,9 @@ function SessionCard({ session }: { session: SessionItem }) {
 }
 
 export default function HistoryScreen() {
-  const sessions = useQuery(api.sessions.listHistory) ?? [];
+  const sessionsResult = useQuery(api.sessions.listHistory);
+  const isLoading = sessionsResult === undefined;
+  const sessions = sessionsResult ?? [];
   const sections = groupByPeriod(sessions);
 
   return (
@@ -88,13 +101,21 @@ export default function HistoryScreen() {
       <Text
         style={[
           typography.headlineLg,
-          { color: colors.onSurface, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+          {
+            color: colors.onSurface,
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.lg,
+          },
         ]}
       >
         History
       </Text>
 
-      {sections.length === 0 ? (
+      {isLoading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : sections.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
             No parking sessions yet
