@@ -2,6 +2,7 @@
   "expo": {
     "name": "parkDaddy",
     "slug": "parkDaddy",
+    "owner": "fontezbrooks",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,14 +16,17 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.parkdaddy.app"
+      "bundleIdentifier": "com.parkdaddy.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f9f9fb"
       },
-      "package": "com.parkdaddy.app"
+      "package": "com.parkdaddy.app",
+      "versionCode": 1,
+      "privacy": "unlisted"
     },
     "plugins": [
       "expo-router",

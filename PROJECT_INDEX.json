@@ -1,0 +1,165 @@
+{
+  "project": {
+    "name": "parkDaddy",
+    "version": "1.0.0",
+    "description": "Automated guest parking renewal for Ponce Springs Lofts via ParkEaz API",
+    "generated": "2026-04-02",
+    "bundleId": "com.parkdaddy.app"
+  },
+  "stack": {
+    "framework": "expo@54",
+    "runtime": "react-native@0.81.5",
+    "navigation": "expo-router@6",
+    "language": "typescript@5.9.2",
+    "backend": "convex@1.34.1",
+    "auth": "@clerk/clerk-expo@2.19.33",
+    "notifications": "expo-notifications@0.32.16",
+    "fonts": "@expo-google-fonts/inter"
+  },
+  "entryPoints": {
+    "app": "app/_layout.tsx",
+    "backend": "convex/schema.ts",
+    "config": "app.json"
+  },
+  "envVars": [
+    "EXPO_PUBLIC_CONVEX_URL",
+    "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "CLERK_JWT_ISSUER_DOMAIN",
+    "PARKEAZ_GUEST_CODE"
+  ],
+  "database": {
+    "tables": [
+      {
+        "name": "users",
+        "indexes": ["by_clerk_id"],
+        "fields": ["clerkId", "firstName", "lastName", "email", "mobile", "notifyOnExpiry", "notifyOnSuccess"]
+      },
+      {
+        "name": "vehicles",
+        "indexes": ["by_user"],
+        "fields": ["userId", "plate", "makeModel", "color", "lastUsedAt"]
+      },
+      {
+        "name": "sessions",
+        "indexes": ["by_user_status", "by_status", "by_next_renewal"],
+        "fields": ["userId", "vehicleId", "plate", "firstName", "lastName", "email", "mobile", "desiredEndTime", "status", "currentParkId", "lastParkStart", "lastParkEnd", "nextRenewalAt", "scheduledFunctionId", "expiryWarningId", "renewingAt", "parkeazCookieJson", "retryCount", "lastError"]
+      },
+      {
+        "name": "renewalLogs",
+        "indexes": ["by_session"],
+        "fields": ["sessionId", "action", "parkId", "parkStart", "parkEnd", "error"]
+      },
+      {
+        "name": "pushTokens",
+        "indexes": ["by_user"],
+        "fields": ["userId", "token", "platform"]
+      }
+    ]
+  },
+  "screens": {
+    "auth": [
+      "app/(auth)/welcome.tsx",
+      "app/(auth)/sign-in.tsx",
+      "app/(auth)/sign-up.tsx",
+      "app/(auth)/profile-setup.tsx"
+    ],
+    "tabs": [
+      "app/(tabs)/index.tsx",
+      "app/(tabs)/history.tsx",
+      "app/(tabs)/settings.tsx"
+    ],
+    "flows": [
+      "app/start-parking.tsx",
+      "app/review-session.tsx",
+      "app/extend-duration.tsx",
+      "app/confirm-stop.tsx"
+    ]
+  },
+  "components": [
+    { "name": "CountdownTimer", "path": "src/components/CountdownTimer.tsx" },
+    { "name": "DurationPresetGrid", "path": "src/components/DurationPresetGrid.tsx" },
+    { "name": "GoogleSignInButton", "path": "src/components/GoogleSignInButton.tsx" },
+    { "name": "GradientButton", "path": "src/components/GradientButton.tsx" },
+    { "name": "StatusPill", "path": "src/components/StatusPill.tsx" },
+    { "name": "SurfaceCard", "path": "src/components/SurfaceCard.tsx" },
+    { "name": "VehicleCard", "path": "src/components/VehicleCard.tsx" }
+  ],
+  "backend": {
+    "modules": [
+      {
+        "path": "convex/parkeaz.ts",
+        "exports": ["renewalAction"],
+        "type": "internalAction",
+        "purpose": "ParkEaz HTTP scraping — 3-step form flow"
+      },
+      {
+        "path": "convex/renewal.ts",
+        "exports": ["tick", "saveResult", "handleFailure"],
+        "type": "internalMutation",
+        "purpose": "Renewal state machine with retry logic"
+      },
+      {
+        "path": "convex/sessions.ts",
+        "exports": ["getActive", "listHistory", "getDetail", "create", "extend", "cancel", "retry"],
+        "type": "query/mutation",
+        "purpose": "Session CRUD and lifecycle"
+      },
+      {
+        "path": "convex/notifications.ts",
+        "exports": ["sendExpiryWarning", "sendSessionEnded", "sendRenewalFailure", "sendUrgentFailure", "push"],
+        "type": "internalMutation/internalAction",
+        "purpose": "Push notification dispatch via Expo API"
+      },
+      {
+        "path": "convex/users.ts",
+        "exports": ["getProfile", "upsertProfile", "updateNotificationPrefs"],
+        "type": "query/mutation",
+        "purpose": "User profile management"
+      },
+      {
+        "path": "convex/vehicles.ts",
+        "exports": ["list", "add", "remove"],
+        "type": "query/mutation",
+        "purpose": "Vehicle CRUD"
+      },
+      {
+        "path": "convex/pushTokens.ts",
+        "exports": ["save"],
+        "type": "mutation",
+        "purpose": "Push token registration"
+      },
+      {
+        "path": "convex/notificationsHelpers.ts",
+        "exports": ["getTokensForUser", "pruneDeadTokens"],
+        "type": "internalQuery/internalMutation",
+        "purpose": "Push token queries and cleanup"
+      },
+      {
+        "path": "convex/cronHandlers.ts",
+        "exports": ["safetyNetScan"],
+        "type": "internalMutation",
+        "purpose": "Recovery for stuck/overdue sessions"
+      },
+      {
+        "path": "convex/crons.ts",
+        "exports": ["default"],
+        "type": "cronJobs",
+        "purpose": "30-min safety net scan"
+      }
+    ]
+  },
+  "theme": {
+    "path": "src/theme/",
+    "modules": ["colors.ts", "typography.ts", "spacing.ts", "index.ts"]
+  },
+  "designMockups": {
+    "path": "stitch_parkdaddy/stitch_parkdaddy/",
+    "screens": ["active_session", "extend_duration", "guardian_flow", "history", "home_inactive", "profile_setup", "renewal_failure_state", "review_session", "settings", "start_parking", "stop_parking_confirmation", "welcome_screen"]
+  },
+  "stats": {
+    "totalLines": 4301,
+    "commits": 4,
+    "testFiles": 0,
+    "branch": "maintaince/fix-npm-package-conflicts"
+  }
+}
