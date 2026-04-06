@@ -1,0 +1,89 @@
+[Error] Warning: The result of getSnapshot should be cached to avoid an infinite loop
+DashboardPage@http://localhost:1420/src/App.tsx:127:35
+main
+div
+AppShell@http://localhost:1420/src/components/layout/AppShell.tsx:18:44
+App@http://localhost:1420/src/App.tsx:405:57
+	printWarning (chunk-NXESFFTV.js:521)
+	error (chunk-NXESFFTV.js:505)
+	mountSyncExternalStore (chunk-NXESFFTV.js:11939)
+	useStore (zustand.js:36)
+	DashboardPage (App.tsx:132)
+	renderWithHooks (chunk-NXESFFTV.js:11596)
+	mountIndeterminateComponent (chunk-NXESFFTV.js:14974)
+	beginWork$1 (chunk-NXESFFTV.js:19806)
+	performUnitOfWork (chunk-NXESFFTV.js:19251)
+	workLoopSync (chunk-NXESFFTV.js:19190)
+	renderRootSync (chunk-NXESFFTV.js:19169)
+	performConcurrentWorkOnRoot (chunk-NXESFFTV.js:18728:98)
+	workLoop (chunk-NXESFFTV.js:197)
+	flushWork (chunk-NXESFFTV.js:176)
+	performWorkUntilDeadline (chunk-NXESFFTV.js:384)
+
+    [Error] Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+	(anonymous function) (chunk-NXESFFTV.js:16718)
+	callCallback2 (chunk-NXESFFTV.js:3680)
+	dispatchEvent
+	invokeGuardedCallbackDev (chunk-NXESFFTV.js:3705)
+	invokeGuardedCallback (chunk-NXESFFTV.js:3739)
+	reportUncaughtErrorInDEV (chunk-NXESFFTV.js:16717)
+	captureCommitPhaseError (chunk-NXESFFTV.js:19611)
+	commitPassiveMountEffects_complete (chunk-NXESFFTV.js:18181)
+	commitPassiveMountEffects_begin (chunk-NXESFFTV.js:18169)
+	commitPassiveMountEffects (chunk-NXESFFTV.js:18159)
+	flushPassiveEffectsImpl (chunk-NXESFFTV.js:19543)
+	flushPassiveEffects (chunk-NXESFFTV.js:19500)
+	commitRootImpl (chunk-NXESFFTV.js:19469)
+	commitRoot (chunk-NXESFFTV.js:19330)
+	performSyncWorkOnRoot (chunk-NXESFFTV.js:18948)
+	flushSyncCallbacks (chunk-NXESFFTV.js:9166)
+	flushPassiveEffectsImpl (chunk-NXESFFTV.js:19559)
+	flushPassiveEffects (chunk-NXESFFTV.js:19500)
+	(anonymous function) (chunk-NXESFFTV.js:19381)
+	workLoop (chunk-NXESFFTV.js:197)
+	flushWork (chunk-NXESFFTV.js:176)
+	performWorkUntilDeadline (chunk-NXESFFTV.js:384)
+
+    [Error] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+LightMapping@http://localhost:1420/src/components/palette/LightMapping.tsx:130:33
+div
+GlassPanel@http://localhost:1420/src/components/shared/GlassPanel.tsx:23:8
+div
+div
+DashboardPage@http://localhost:1420/src/App.tsx:127:35
+main
+div
+AppShell@http://localhost:1420/src/components/layout/AppShell.tsx:18:44
+App@http://localhost:1420/src/App.tsx:405:57
+	printWarning (chunk-NXESFFTV.js:521)
+	error (chunk-NXESFFTV.js:505)
+	checkForNestedUpdates (chunk-NXESFFTV.js:19718)
+	scheduleUpdateOnFiber (chunk-NXESFFTV.js:18583)
+	forceStoreRerender (chunk-NXESFFTV.js:12047)
+	updateStoreInstance (chunk-NXESFFTV.js:12023)
+	commitHookEffectListMount (chunk-NXESFFTV.js:16963)
+	commitPassiveMountOnFiber (chunk-NXESFFTV.js:18206)
+	commitPassiveMountEffects_complete (chunk-NXESFFTV.js:18179)
+	commitPassiveMountEffects_begin (chunk-NXESFFTV.js:18169)
+	commitPassiveMountEffects (chunk-NXESFFTV.js:18159)
+	flushPassiveEffectsImpl (chunk-NXESFFTV.js:19543)
+	flushPassiveEffects (chunk-NXESFFTV.js:19500)
+	commitRootImpl (chunk-NXESFFTV.js:19469)
+	commitRoot (chunk-NXESFFTV.js:19330)
+	performSyncWorkOnRoot (chunk-NXESFFTV.js:18948)
+	flushSyncCallbacks (chunk-NXESFFTV.js:9166)
+	flushPassiveEffectsImpl (chunk-NXESFFTV.js:19559)
+	flushPassiveEffects (chunk-NXESFFTV.js:19500)
+	(anonymous function) (chunk-NXESFFTV.js:19381)
+	workLoop (chunk-NXESFFTV.js:197)
+	flushWork (chunk-NXESFFTV.js:176)
+	performWorkUntilDeadline (chunk-NXESFFTV.js:384)
+
+    [Error] Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops.
+	flushSyncCallbacks (chunk-NXESFFTV.js:9176)
+	flushPassiveEffectsImpl (chunk-NXESFFTV.js:19559)
+	flushPassiveEffects (chunk-NXESFFTV.js:19500)
+	(anonymous function) (chunk-NXESFFTV.js:19381)
+	workLoop (chunk-NXESFFTV.js:197)
+	flushWork (chunk-NXESFFTV.js:176)
+	performWorkUntilDeadline (chunk-NXESFFTV.js:384)

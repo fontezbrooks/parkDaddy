@@ -22,13 +22,13 @@
     "production": {
       "ios": {
         "appleId": "fontez0622@gmail.com",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
-      },
-      "android": {
-        "serviceAccountKeyPath": "",
-        "track": "internal"
+        "ascAppId": "6761696222",
+        "appleTeamId": "X5V27377FQ"
       }
+      // "android": {
+      //   "serviceAccountKeyPath": "",
+      //   "track": "internal"
+      // }
     }
   }
 }
