@@ -2,34 +2,35 @@ import { TextStyle } from "react-native";
 
 export const typography = {
   displayLg: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "BricolageGrotesque_800ExtraBold",
     fontSize: 48,
     lineHeight: 56,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   } satisfies TextStyle,
   displayMd: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "BricolageGrotesque_700Bold",
     fontSize: 36,
     lineHeight: 44,
-    letterSpacing: -0.25,
+    letterSpacing: -0.5,
   } satisfies TextStyle,
   displaySm: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "BricolageGrotesque_700Bold",
     fontSize: 28,
     lineHeight: 36,
+    letterSpacing: -0.25,
   } satisfies TextStyle,
   headlineLg: {
-    fontFamily: "Inter_700Bold",
+    fontFamily: "BricolageGrotesque_700Bold",
     fontSize: 24,
     lineHeight: 32,
   } satisfies TextStyle,
   headlineMd: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "BricolageGrotesque_600SemiBold",
     fontSize: 20,
     lineHeight: 28,
   } satisfies TextStyle,
   headlineSm: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "BricolageGrotesque_600SemiBold",
     fontSize: 18,
     lineHeight: 24,
   } satisfies TextStyle,

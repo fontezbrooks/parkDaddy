@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -5,6 +6,7 @@ import {
   Switch,
   Pressable,
   FlatList,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@clerk/clerk-expo";
@@ -16,6 +18,21 @@ import { SurfaceCard } from "@/src/components/SurfaceCard";
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = () => {
+    Alert.alert("Sign out?", "You can always sign back in.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          setSigningOut(true);
+          await signOut();
+        },
+      },
+    ]);
+  };
   const profile = useQuery(api.users.getProfile);
   const vehicles = useQuery(api.vehicles.list) ?? [];
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
@@ -47,7 +64,7 @@ export default function SettingsScreen() {
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
                   {profile.firstName[0]}
-                  {profile.lastName[0]}
+                  {profile.lastName?.[0] ?? ""}
                 </Text>
               </View>
               <View>
@@ -167,9 +184,9 @@ export default function SettingsScreen() {
         </SurfaceCard>
 
         {/* Sign Out */}
-        <Pressable onPress={() => signOut()} style={styles.signOutButton}>
+        <Pressable onPress={handleSignOut} style={styles.signOutButton}>
           <Text style={[typography.titleLg, { color: colors.secondary }]}>
-            Sign Out
+            {signingOut ? "Signing out..." : "Sign Out"}
           </Text>
         </Pressable>
       </View>

@@ -7,9 +7,9 @@ import { colors } from "@/src/theme";
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Home: "H",
-    History: "Hi",
-    Settings: "S",
+    Home: "\u{2302}",
+    History: "\u{23F2}",
+    Settings: "\u{2699}",
   };
 
   return (

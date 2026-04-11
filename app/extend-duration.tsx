@@ -100,7 +100,7 @@ export default function ExtendDurationScreen() {
             <StatusPill status="active" />
           </View>
           <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
-            Current session ends at{" "}
+            Currently covered until{" "}
             {new Date(session.desiredEndTime).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -109,10 +109,8 @@ export default function ExtendDurationScreen() {
         </View>
 
         <View style={styles.durationSection}>
-          <Text
-            style={[typography.labelMd, { color: colors.onSurfaceVariant }]}
-          >
-            SELECT EXTENSION
+          <Text style={[typography.titleLg, { color: colors.onSurface }]}>
+            Add more time
           </Text>
           <DurationPresetGrid
             presets={PRESETS}
@@ -124,9 +122,9 @@ export default function ExtendDurationScreen() {
         {newEndTime && (
           <View style={styles.impact}>
             <Text
-              style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+              style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              NEW SESSION END
+              COVERED UNTIL
             </Text>
             <Text style={[typography.displaySm, { color: colors.onSurface }]}>
               {newEndTime.toLocaleTimeString([], {
@@ -137,8 +135,7 @@ export default function ExtendDurationScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              Extension includes {additionalRenewals} more automated renewal
-              {additionalRenewals !== 1 ? "s" : ""}
+              We'll keep auto-renewing for you.
             </Text>
           </View>
         )}

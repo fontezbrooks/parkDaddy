@@ -1,7 +1,16 @@
-import { useState, useMemo } from "react";
-import { View, Text, TextInput, StyleSheet, ScrollView } from "react-native";
+import { useState, useMemo, useCallback } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
 import { DurationPresetGrid } from "@/src/components/DurationPresetGrid";
@@ -27,11 +36,20 @@ const PRESETS = [
 ];
 
 export default function StartParkingScreen() {
-  const params = useLocalSearchParams<{ plate?: string }>();
+  const params = useLocalSearchParams<{
+    plate?: string;
+    durationMinutes?: string;
+  }>();
   const [plate, setPlate] = useState(params.plate ?? "");
   const [makeModel, setMakeModel] = useState("");
   const [vehicleColor, setVehicleColor] = useState("");
-  const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
+  const [showVehicleDetails, setShowVehicleDetails] = useState(false);
+  const [selectedMinutes, setSelectedMinutes] = useState<number | null>(
+    params.durationMinutes ? parseInt(params.durationMinutes, 10) : null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const createSession = useMutation(api.sessions.create);
 
   const actualMinutes = useMemo(() => {
     if (selectedMinutes === -1) return getOvernightMinutes();
@@ -50,22 +68,39 @@ export default function StartParkingScreen() {
 
   const canProceed = plate.length >= 2 && selectedMinutes !== null;
 
+  const handleParkThisCar = useCallback(async () => {
+    if (!actualMinutes) return;
+    setLoading(true);
+    setError("");
+    try {
+      await createSession({
+        plate,
+        makeModel: makeModel || undefined,
+        color: vehicleColor || undefined,
+        durationMinutes: actualMinutes,
+      });
+      router.dismissAll();
+      router.replace("/(tabs)");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to start session");
+    } finally {
+      setLoading(false);
+    }
+  }, [createSession, plate, makeModel, vehicleColor, actualMinutes]);
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={[typography.labelMd, styles.sectionLabel]}>
-          VEHICLE IDENTITY
-        </Text>
         <Text style={[typography.headlineLg, { color: colors.onSurface }]}>
-          Start Parking
+          Park a guest
         </Text>
 
         <View style={styles.plateSection}>
           <Text style={[typography.labelSm, styles.fieldLabel]}>
-            LICENSE PLATE NUMBER
+            LICENSE PLATE
           </Text>
           <TextInput
             style={styles.plateInput}
@@ -78,32 +113,43 @@ export default function StartParkingScreen() {
           />
         </View>
 
-        <View style={styles.optionalRow}>
-          <View style={styles.optionalField}>
-            <Text style={[typography.labelSm, styles.fieldLabel]}>
-              MAKE & MODEL
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={makeModel}
-              onChangeText={setMakeModel}
-              placeholder="e.g. Tesla Model 3"
-              placeholderTextColor={colors.onSurfaceVariant}
-            />
+        <Pressable
+          onPress={() => setShowVehicleDetails((v) => !v)}
+          style={styles.accordionTrigger}
+        >
+          <Text style={[typography.bodyMd, { color: colors.primary }]}>
+            {showVehicleDetails
+              ? "Hide vehicle details"
+              : "Add vehicle details (optional)"}
+          </Text>
+        </Pressable>
+
+        {showVehicleDetails && (
+          <View style={styles.optionalRow}>
+            <View style={styles.optionalField}>
+              <Text style={[typography.labelSm, styles.fieldLabel]}>
+                MAKE & MODEL
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={makeModel}
+                onChangeText={setMakeModel}
+                placeholder="e.g. Tesla Model 3"
+                placeholderTextColor={colors.onSurfaceVariant}
+              />
+            </View>
+            <View style={styles.optionalField}>
+              <Text style={[typography.labelSm, styles.fieldLabel]}>COLOR</Text>
+              <TextInput
+                style={styles.input}
+                value={vehicleColor}
+                onChangeText={setVehicleColor}
+                placeholder="e.g. Silver"
+                placeholderTextColor={colors.onSurfaceVariant}
+              />
+            </View>
           </View>
-          <View style={styles.optionalField}>
-            <Text style={[typography.labelSm, styles.fieldLabel]}>
-              VEHICLE COLOR
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={vehicleColor}
-              onChangeText={setVehicleColor}
-              placeholder="e.g. Silver"
-              placeholderTextColor={colors.onSurfaceVariant}
-            />
-          </View>
-        </View>
+        )}
 
         <View style={styles.durationSection}>
           <Text style={[typography.titleLg, { color: colors.onSurface }]}>
@@ -118,45 +164,33 @@ export default function StartParkingScreen() {
 
         {estimatedEnd && (
           <View style={styles.summary}>
-            <Text style={[typography.labelSm, styles.fieldLabel]}>
-              ESTIMATED END TIME
-            </Text>
             <Text style={[typography.displaySm, { color: colors.onSurface }]}>
+              Covered until{" "}
               {estimatedEnd.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              <Text
-                style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}
-              >
-                {" "}
-                ({estimatedEnd.toLocaleDateString([], { weekday: "short" })})
-              </Text>
             </Text>
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              {renewalCount} renewal{renewalCount !== 1 ? "s" : ""} included
+              We'll auto-renew every 2 hours so your guest stays compliant.
             </Text>
           </View>
         )}
+
+        {error ? (
+          <Text style={[typography.bodySm, { color: colors.secondary }]}>
+            {error}
+          </Text>
+        ) : null}
       </ScrollView>
 
       <View style={styles.footer}>
         <GradientButton
-          title="Confirm & Start"
-          onPress={() =>
-            router.push({
-              pathname: "/review-session",
-              params: {
-                plate,
-                makeModel,
-                color: vehicleColor,
-                durationMinutes: String(actualMinutes),
-              },
-            })
-          }
-          disabled={!canProceed}
+          title={loading ? "Parking..." : "Park This Car"}
+          onPress={handleParkThisCar}
+          disabled={!canProceed || loading}
         />
       </View>
     </SafeAreaView>
@@ -183,8 +217,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginBottom: spacing.xs,
   },
-  plateSection: {
-    marginTop: spacing.sm,
+  plateSection: {},
+  accordionTrigger: {
+    paddingVertical: spacing.sm,
   },
   plateInput: {
     backgroundColor: colors.surfaceContainerLowest,

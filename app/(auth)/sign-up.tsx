@@ -25,8 +25,9 @@ export default function SignUpScreen() {
       await signUp.create({ emailAddress: email, password });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? "Sign up failed");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { message?: string }[] };
+      setError(clerkErr.errors?.[0]?.message ?? "Sign up failed");
     } finally {
       setLoading(false);
     }
@@ -43,8 +44,9 @@ export default function SignUpScreen() {
         await setActive({ session: result.createdSessionId });
         router.replace("/(auth)/profile-setup");
       }
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? "Verification failed");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { message?: string }[] };
+      setError(clerkErr.errors?.[0]?.message ?? "Verification failed");
     } finally {
       setLoading(false);
     }

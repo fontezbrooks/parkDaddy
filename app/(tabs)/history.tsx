@@ -118,7 +118,7 @@ export default function HistoryScreen() {
       ) : sections.length === 0 ? (
         <View style={styles.empty}>
           <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-            No parking sessions yet
+            No guests parked yet. When you do, the receipts show up here.
           </Text>
         </View>
       ) : (

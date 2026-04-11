@@ -32,8 +32,8 @@ export default function ProfileSetupScreen() {
     try {
       await upsertProfile({ firstName, lastName, email, mobile });
       router.replace("/(tabs)");
-    } catch (err: any) {
-      setError(err.message ?? "Failed to save profile");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setLoading(false);
     }
@@ -50,9 +50,21 @@ export default function ProfileSetupScreen() {
         </Text>
       </View>
 
+      <Text
+        style={[
+          typography.headlineLg,
+          {
+            color: colors.onSurface,
+            textAlign: "center",
+            marginTop: spacing.lg,
+          },
+        ]}
+      >
+        Quick setup
+      </Text>
       <Text style={[typography.bodyMd, styles.subtitle]}>
-        Automated guest parking for Ponce Springs Lofts. Register once, stay
-        registered.
+        ParkEaz needs these details to register your guest's vehicle. We never
+        share your info.
       </Text>
 
       <View style={styles.form}>

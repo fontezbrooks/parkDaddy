@@ -29,8 +29,9 @@ export default function SignInScreen() {
         await setActive({ session: result.createdSessionId });
         router.replace("/(tabs)");
       }
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? "Sign in failed");
+    } catch (err: unknown) {
+      const clerkErr = err as { errors?: { message?: string }[] };
+      setError(clerkErr.errors?.[0]?.message ?? "Sign in failed");
     } finally {
       setLoading(false);
     }

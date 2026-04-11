@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "convex/react";
@@ -7,7 +8,6 @@ import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { CountdownTimer } from "@/src/components/CountdownTimer";
-import { VehicleCard } from "@/src/components/VehicleCard";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -18,7 +18,7 @@ function Header() {
         <View style={styles.logoIcon}>
           <Text style={styles.logoText}>P</Text>
         </View>
-        <Text style={[typography.titleLg, { color: colors.onSurface }]}>
+        <Text style={[typography.headlineSm, { color: colors.onSurface }]}>
           parkDaddy
         </Text>
       </View>
@@ -26,48 +26,102 @@ function Header() {
   );
 }
 
+const DEFAULT_DURATION_MINUTES = 240; // 4 hours
+
+function QuickStartCard({
+  plate,
+  onPark,
+  loading,
+}: {
+  plate: string;
+  onPark: () => void;
+  loading: boolean;
+}) {
+  return (
+    <LinearGradient
+      colors={[colors.surfaceContainerLowest, colors.surfaceContainerLow]}
+      style={styles.quickStartCard}
+    >
+      <View style={styles.quickStartInfo}>
+        <Text style={[typography.headlineMd, { color: colors.primary }]}>
+          {plate}
+        </Text>
+        <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
+          Park for 4 hours
+        </Text>
+      </View>
+      <GradientButton
+        title={loading ? "Parking..." : "Park Now"}
+        onPress={onPark}
+        disabled={loading}
+      />
+    </LinearGradient>
+  );
+}
+
 function InactiveState() {
   const vehicles = useQuery(api.vehicles.list) ?? [];
+  const createSession = useMutation(api.sessions.create);
+  const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const handleQuickStart = async (plate: string) => {
+    setLoadingPlate(plate);
+    setError("");
+    try {
+      await createSession({
+        plate,
+        durationMinutes: DEFAULT_DURATION_MINUTES,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to start session");
+    } finally {
+      setLoadingPlate(null);
+    }
+  };
+
+  if (vehicles.length === 0) {
+    return (
+      <View style={styles.content}>
+        <View style={styles.emptyState}>
+          <Text style={[typography.headlineLg, { color: colors.onSurface }]}>
+            Park a guest
+          </Text>
+          <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
+            Add a vehicle and we'll handle the rest. Auto-renewing,
+            auto-everything.
+          </Text>
+        </View>
+        <GradientButton
+          title="Start Parking"
+          onPress={() => router.push("/start-parking")}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.content}>
-      <View style={styles.emptyState}>
-        <Text style={[typography.headlineMd, { color: colors.onSurface }]}>
-          No active session. Your guests are not currently registered.
+      {error ? (
+        <Text style={[typography.bodySm, { color: colors.secondary }]}>
+          {error}
         </Text>
-        <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-          Start a session to provide your guests with verified parking status
-          and avoid enforcement risk.
-        </Text>
-      </View>
+      ) : null}
+
+      {vehicles.slice(0, 3).map((vehicle) => (
+        <QuickStartCard
+          key={vehicle._id}
+          plate={vehicle.plate}
+          loading={loadingPlate === vehicle.plate}
+          onPark={() => handleQuickStart(vehicle.plate)}
+        />
+      ))}
 
       <GradientButton
-        title="START NEW PARKING SESSION"
+        title="Park a different car"
+        variant="outline"
         onPress={() => router.push("/start-parking")}
       />
-
-      {vehicles.length > 0 && (
-        <View style={styles.vehiclesSection}>
-          <Text style={[typography.labelMd, styles.sectionLabel]}>
-            SAVED VEHICLES
-          </Text>
-          {vehicles.map((item, i) => (
-            <View key={item._id}>
-              {i > 0 && <View style={{ height: spacing.sm }} />}
-              <VehicleCard
-                plate={item.plate}
-                makeModel={item.makeModel}
-                onPress={() =>
-                  router.push({
-                    pathname: "/start-parking",
-                    params: { plate: item.plate },
-                  })
-                }
-              />
-            </View>
-          ))}
-        </View>
-      )}
     </View>
   );
 }
@@ -79,81 +133,34 @@ function ActiveState({
     ReturnType<typeof useQuery<typeof api.sessions.getActive>>
   >;
 }) {
-  const status = session.status as "active" | "renewing" | "failed";
+  const endTimeFormatted = new Date(session.desiredEndTime).toLocaleTimeString(
+    [],
+    { hour: "2-digit", minute: "2-digit" },
+  );
 
   return (
     <View style={styles.content}>
-      <StatusPill status={status} />
+      <StatusPill status="active" />
 
       <LinearGradient
         colors={[colors.primary, colors.primaryContainer]}
         style={styles.heroCard}
       >
-        <Text style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}>
-          TIME REMAINING
+        <Text
+          style={[typography.headlineSm, { color: "rgba(255,255,255,0.7)" }]}
+        >
+          You're covered until
         </Text>
-        <CountdownTimer targetTime={session.desiredEndTime} />
-        {session.lastParkEnd && (
-          <View style={styles.glassPill}>
-            <Text style={[typography.bodySm, { color: colors.onSurface }]}>
-              Session ends at{" "}
-              {new Date(session.desiredEndTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-          </View>
-        )}
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text
-              style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}
-            >
-              VEHICLE
-            </Text>
-            <Text style={[typography.titleLg, { color: colors.onPrimary }]}>
-              {session.plate}
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text
-              style={[typography.labelSm, { color: "rgba(255,255,255,0.7)" }]}
-            >
-              ZONE
-            </Text>
-            <Text style={[typography.titleLg, { color: colors.onPrimary }]}>
-              622
-            </Text>
-          </View>
+        <Text style={[typography.displayLg, { color: colors.onPrimary }]}>
+          {endTimeFormatted}
+        </Text>
+        <CountdownTimer targetTime={session.desiredEndTime} variant="medium" />
+        <View style={styles.glassPill}>
+          <Text style={[typography.bodySm, { color: colors.onSurface }]}>
+            {session.plate} · Ponce Springs
+          </Text>
         </View>
       </LinearGradient>
-
-      {session.renewalLogs && session.renewalLogs.length > 0 && (
-        <SurfaceCard level={1}>
-          <Text
-            style={[
-              typography.labelMd,
-              { color: colors.onSurfaceVariant, marginBottom: spacing.sm },
-            ]}
-          >
-            RENEWAL LOG
-          </Text>
-          {session.renewalLogs
-            .filter((l) => l.action === "renewal" || l.action === "initial")
-            .slice(-3)
-            .map((log) => (
-              <View key={log._id} style={styles.logItem}>
-                <Text style={[typography.bodySm, { color: colors.onSurface }]}>
-                  {log.action === "initial" ? "Started" : "Renewed"} at{" "}
-                  {new Date(log._creationTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </View>
-            ))}
-        </SurfaceCard>
-      )}
 
       <GradientButton
         title="Extend Time"
@@ -177,55 +184,37 @@ function ErrorState({
 }) {
   const retryMutation = useMutation(api.sessions.retry);
 
+  const validUntil = session.lastParkEnd
+    ? new Date(session.lastParkEnd).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
     <View style={styles.content}>
-      <View style={styles.alarmHeader}>
-        <Text style={[typography.labelLg, { color: colors.onSecondary }]}>
-          RENEWAL FAILED
-        </Text>
-      </View>
-
-      {session.lastParkEnd && (
-        <SurfaceCard level={2}>
-          <Text
-            style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
-          >
-            REGISTRATION EXPIRES IN
-          </Text>
-          <CountdownTimer
-            targetTime={session.lastParkEnd}
-            variant="medium"
-            style={{ color: colors.secondary }}
-          />
-        </SurfaceCard>
-      )}
-
-      <SurfaceCard level={1}>
-        <Text style={[typography.titleLg, { color: colors.onSurface }]}>
-          Connection Error
+      <SurfaceCard level={2}>
+        <Text style={[typography.headlineMd, { color: colors.secondary }]}>
+          Heads up — renewal didn't go through
         </Text>
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-          {session.lastError ?? "Could not connect to the parking system."}
+          {validUntil
+            ? `Your current registration for ${session.plate} is valid until ${validUntil}. Register manually to stay covered.`
+            : `We couldn't renew parking for ${session.plate}. Register manually to stay covered.`}
         </Text>
-        <View style={styles.infoRow}>
-          <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
-            {session.plate} · Zone 622
-          </Text>
-        </View>
       </SurfaceCard>
 
       <GradientButton
-        title="Retry Now"
-        variant="secondary"
-        onPress={() => retryMutation({ sessionId: session._id })}
+        title="Register at ParkEaz"
+        onPress={() => Linking.openURL("https://paid.parkeaz.com")}
       />
 
       <Pressable
-        onPress={() => Linking.openURL("https://paid.parkeaz.com")}
+        onPress={() => retryMutation({ sessionId: session._id })}
         style={styles.manualLink}
       >
         <Text style={[typography.bodyMd, { color: colors.primary }]}>
-          Register Manually at ParkEaz
+          Retry automatic renewal
         </Text>
       </Pressable>
     </View>
@@ -299,12 +288,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing["3xl"],
     gap: spacing.md,
   },
-  vehiclesSection: {
-    gap: spacing.sm,
-  },
-  sectionLabel: {
-    color: colors.onSurfaceVariant,
-  },
   heroCard: {
     borderRadius: radius.xl,
     padding: spacing.xl,
@@ -317,30 +300,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  infoGrid: {
-    flexDirection: "row",
-    gap: spacing["3xl"],
-    marginTop: spacing.sm,
-  },
-  infoItem: {
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  logItem: {
-    paddingVertical: spacing.xs,
-  },
-  alarmHeader: {
-    backgroundColor: colors.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginHorizontal: -spacing.lg,
-    alignItems: "center",
-  },
-  infoRow: {
-    marginTop: spacing.sm,
-  },
   manualLink: {
     alignItems: "center",
     paddingVertical: spacing.sm,
+  },
+  quickStartCard: {
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  quickStartInfo: {
+    gap: spacing.xs,
   },
 });

@@ -1,5 +1,11 @@
 import { useState, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { router } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -50,7 +56,7 @@ export default function ConfirmStopScreen() {
         <View style={styles.content}>
           <Text style={styles.warningIcon}>⚠</Text>
           <Text style={[typography.headlineLg, { color: colors.onSurface }]}>
-            Stop Parking?
+            Done parking?
           </Text>
           <Text
             style={[
@@ -58,12 +64,11 @@ export default function ConfirmStopScreen() {
               { color: colors.onSurfaceVariant, textAlign: "center" },
             ]}
           >
-            Are you sure you want to stop automated parking for{" "}
+            We'll stop auto-renewing for{" "}
             <Text style={{ fontFamily: "Inter_600SemiBold" }}>
               {session?.plate}
             </Text>
-            ? Future renewals will stop, but the current 2-hour registration
-            remains valid until {validUntil}.
+            . Your guest's current registration stays valid until {validUntil}.
           </Text>
 
           {error ? (
@@ -73,7 +78,7 @@ export default function ConfirmStopScreen() {
           ) : null}
 
           <GradientButton
-            title={loading ? "Stopping..." : "Stop Parking"}
+            title={loading ? "Stopping..." : "Yes, stop parking"}
             onPress={handleStop}
             disabled={loading || !session}
           />

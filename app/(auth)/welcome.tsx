@@ -17,12 +17,11 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={[typography.headlineLg, styles.title]}>
-          Welcome to{"\n"}parkDaddy
+        <Text style={[typography.displaySm, styles.title]}>
+          Guest parking,{"\n"}handled.
         </Text>
         <Text style={[typography.bodyLg, styles.subtitle]}>
-          Automated guest parking renewals for Ponce Springs residents. Never
-          worry about a boot again.
+          One tap. Auto-renewing. Your guest stays parked, you stay chill.
         </Text>
       </View>
 

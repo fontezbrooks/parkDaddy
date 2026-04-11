@@ -11,6 +11,11 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import {
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from "@expo-google-fonts/bricolage-grotesque";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 
@@ -67,11 +72,7 @@ function RootLayoutInner() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="start-parking"
-        options={{ headerShown: true, title: "Start Parking" }}
-      />
-      <Stack.Screen
-        name="review-session"
-        options={{ headerShown: true, title: "Review Session" }}
+        options={{ headerShown: true, title: "Park a Guest" }}
       />
       <Stack.Screen
         name="extend-duration"
@@ -91,6 +92,9 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
   });
 
   useEffect(() => {
