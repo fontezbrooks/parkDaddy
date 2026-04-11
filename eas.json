@@ -9,13 +9,22 @@
       "distribution": "internal",
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
+      }
     }
   },
   "submit": {
@@ -24,6 +33,9 @@
         "appleId": "fontez0622@gmail.com",
         "ascAppId": "6761696222",
         "appleTeamId": "X5V27377FQ"
+      },
+      "env": {
+        "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
       }
       // "android": {
       //   "serviceAccountKeyPath": "",
