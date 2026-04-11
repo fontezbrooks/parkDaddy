@@ -3,7 +3,7 @@
     "name": "parkDaddy",
     "version": "1.0.0",
     "description": "Automated guest parking renewal for Ponce Springs Lofts via ParkEaz API",
-    "generated": "2026-04-02",
+    "generated": "2026-04-11",
     "bundleId": "com.parkdaddy.app"
   },
   "stack": {
@@ -157,9 +157,11 @@
     "screens": ["active_session", "extend_duration", "guardian_flow", "history", "home_inactive", "profile_setup", "renewal_failure_state", "review_session", "settings", "start_parking", "stop_parking_confirmation", "welcome_screen"]
   },
   "stats": {
-    "totalLines": 4301,
-    "commits": 4,
+    "totalLines": 5194,
+    "commits": 9,
     "testFiles": 0,
-    "branch": "maintaince/fix-npm-package-conflicts"
+    "branch": "main",
+    "appVersion": "1.0.0",
+    "submittedToAppStore": "2026-04-06"
   }
 }

@@ -105,7 +105,7 @@ export const renewalAction = internalAction({
   },
   handler: async (ctx, args) => {
     console.log(
-      `[ParkEaz] renewalAction started for plate=${args.plate}, session=${args.sessionId}`,
+      `[ParkEaz] renewalAction started for session=${args.sessionId}`,
     );
 
     const guestCode = process.env.PARKEAZ_GUEST_CODE;
@@ -132,7 +132,6 @@ export const renewalAction = internalAction({
       const formHtml = await formRes.text();
 
       console.log(`[ParkEaz] Step 0 form page: HTTP ${formRes.status}`, {
-        url: formUrl,
         bodyLength: formHtml.length,
         hasForm: formHtml.includes("<form"),
       });
@@ -191,7 +190,6 @@ export const renewalAction = internalAction({
       const checkoutHtml = await checkoutRes.text();
 
       console.log(`[ParkEaz] Step 1 /checkout: HTTP ${checkoutRes.status}`, {
-        plate: args.plate,
         parkstart,
         finalUrl: checkoutRes.url,
         bodyLength: checkoutHtml.length,
@@ -358,7 +356,7 @@ export const renewalAction = internalAction({
 
       const parkStartMs = Date.now();
 
-      console.log(`[ParkEaz] SUCCESS for plate ${args.plate}`, {
+      console.log(`[ParkEaz] SUCCESS for session=${args.sessionId}`, {
         parkId,
         parkStart: new Date(parkStartMs).toISOString(),
         parkEnd: new Date(confirmedParkEnd).toISOString(),
@@ -373,7 +371,9 @@ export const renewalAction = internalAction({
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Unknown ParkEaz error";
-      console.error(`[ParkEaz] FAILED for plate ${args.plate}: ${message}`);
+      console.error(
+        `[ParkEaz] FAILED for session=${args.sessionId}: ${message}`,
+      );
       await ctx.runMutation(internal.renewal.handleFailure, {
         sessionId: args.sessionId,
         error: message,

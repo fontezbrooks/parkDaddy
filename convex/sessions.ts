@@ -115,6 +115,11 @@ export const create = mutation({
       .unique();
     if (!user) throw new Error("Profile not found. Complete setup first.");
 
+    const plateRegex = /^[A-Z0-9]{1,8}[-\s]?[A-Z0-9]{0,5}$/;
+    if (!plateRegex.test(args.plate.toUpperCase().trim())) {
+      throw new Error("Invalid license plate format");
+    }
+
     if (args.durationMinutes < 1 || args.durationMinutes > 1440) {
       throw new Error("Duration must be between 1 and 1440 minutes");
     }

@@ -51,8 +51,8 @@ export default function ExtendDurationScreen() {
         additionalMinutes: selectedMinutes,
       });
       router.back();
-    } catch (err: any) {
-      setError(err.message ?? "Failed to extend");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to extend");
     } finally {
       setLoading(false);
     }

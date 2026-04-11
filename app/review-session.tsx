@@ -44,8 +44,8 @@ export default function ReviewSessionScreen() {
       });
       router.dismissAll();
       router.replace("/(tabs)");
-    } catch (err: any) {
-      setError(err.message ?? "Failed to start session");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to start session");
     } finally {
       setLoading(false);
     }

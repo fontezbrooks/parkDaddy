@@ -74,7 +74,9 @@ export const push = internalAction({
     userId: v.id("users"),
     title: v.string(),
     body: v.string(),
-    data: v.optional(v.any()),
+    data: v.optional(
+      v.object({ route: v.string(), sessionId: v.id("sessions") }),
+    ),
   },
   handler: async (ctx, args) => {
     const tokens: { token: string }[] = await ctx.runQuery(

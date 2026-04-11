@@ -1,11 +1,4 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  Linking,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -58,10 +51,9 @@ function InactiveState() {
           <Text style={[typography.labelMd, styles.sectionLabel]}>
             SAVED VEHICLES
           </Text>
-          <FlatList
-            data={vehicles}
-            keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
+          {vehicles.map((item, i) => (
+            <View key={item._id}>
+              {i > 0 && <View style={{ height: spacing.sm }} />}
               <VehicleCard
                 plate={item.plate}
                 makeModel={item.makeModel}
@@ -72,12 +64,8 @@ function InactiveState() {
                   })
                 }
               />
-            )}
-            ItemSeparatorComponent={() => (
-              <View style={{ height: spacing.sm }} />
-            )}
-            scrollEnabled={false}
-          />
+            </View>
+          ))}
         </View>
       )}
     </View>
