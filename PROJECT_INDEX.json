@@ -32,7 +32,15 @@
       {
         "name": "users",
         "indexes": ["by_clerk_id"],
-        "fields": ["clerkId", "firstName", "lastName", "email", "mobile", "notifyOnExpiry", "notifyOnSuccess"]
+        "fields": [
+          "clerkId",
+          "firstName",
+          "lastName",
+          "email",
+          "mobile",
+          "notifyOnExpiry",
+          "notifyOnSuccess"
+        ]
       },
       {
         "name": "vehicles",
@@ -42,12 +50,39 @@
       {
         "name": "sessions",
         "indexes": ["by_user_status", "by_status", "by_next_renewal"],
-        "fields": ["userId", "vehicleId", "plate", "firstName", "lastName", "email", "mobile", "desiredEndTime", "status", "currentParkId", "lastParkStart", "lastParkEnd", "nextRenewalAt", "scheduledFunctionId", "expiryWarningId", "renewingAt", "parkeazCookieJson", "retryCount", "lastError"]
+        "fields": [
+          "userId",
+          "vehicleId",
+          "plate",
+          "firstName",
+          "lastName",
+          "email",
+          "mobile",
+          "desiredEndTime",
+          "status",
+          "currentParkId",
+          "lastParkStart",
+          "lastParkEnd",
+          "nextRenewalAt",
+          "scheduledFunctionId",
+          "expiryWarningId",
+          "renewingAt",
+          "parkeazCookieJson",
+          "retryCount",
+          "lastError"
+        ]
       },
       {
         "name": "renewalLogs",
         "indexes": ["by_session"],
-        "fields": ["sessionId", "action", "parkId", "parkStart", "parkEnd", "error"]
+        "fields": [
+          "sessionId",
+          "action",
+          "parkId",
+          "parkStart",
+          "parkEnd",
+          "error"
+        ]
       },
       {
         "name": "pushTokens",
@@ -77,8 +112,14 @@
   },
   "components": [
     { "name": "CountdownTimer", "path": "src/components/CountdownTimer.tsx" },
-    { "name": "DurationPresetGrid", "path": "src/components/DurationPresetGrid.tsx" },
-    { "name": "GoogleSignInButton", "path": "src/components/GoogleSignInButton.tsx" },
+    {
+      "name": "DurationPresetGrid",
+      "path": "src/components/DurationPresetGrid.tsx"
+    },
+    {
+      "name": "GoogleSignInButton",
+      "path": "src/components/GoogleSignInButton.tsx"
+    },
     { "name": "GradientButton", "path": "src/components/GradientButton.tsx" },
     { "name": "StatusPill", "path": "src/components/StatusPill.tsx" },
     { "name": "SurfaceCard", "path": "src/components/SurfaceCard.tsx" },
@@ -100,13 +141,27 @@
       },
       {
         "path": "convex/sessions.ts",
-        "exports": ["getActive", "listHistory", "getDetail", "create", "extend", "cancel", "retry"],
+        "exports": [
+          "getActive",
+          "listHistory",
+          "getDetail",
+          "create",
+          "extend",
+          "cancel",
+          "retry"
+        ],
         "type": "query/mutation",
         "purpose": "Session CRUD and lifecycle"
       },
       {
         "path": "convex/notifications.ts",
-        "exports": ["sendExpiryWarning", "sendSessionEnded", "sendRenewalFailure", "sendUrgentFailure", "push"],
+        "exports": [
+          "sendExpiryWarning",
+          "sendSessionEnded",
+          "sendRenewalFailure",
+          "sendUrgentFailure",
+          "push"
+        ],
         "type": "internalMutation/internalAction",
         "purpose": "Push notification dispatch via Expo API"
       },
@@ -154,7 +209,20 @@
   },
   "designMockups": {
     "path": "stitch_parkdaddy/stitch_parkdaddy/",
-    "screens": ["active_session", "extend_duration", "guardian_flow", "history", "home_inactive", "profile_setup", "renewal_failure_state", "review_session", "settings", "start_parking", "stop_parking_confirmation", "welcome_screen"]
+    "screens": [
+      "active_session",
+      "extend_duration",
+      "guardian_flow",
+      "history",
+      "home_inactive",
+      "profile_setup",
+      "renewal_failure_state",
+      "review_session",
+      "settings",
+      "start_parking",
+      "stop_parking_confirmation",
+      "welcome_screen"
+    ]
   },
   "stats": {
     "totalLines": 5194,

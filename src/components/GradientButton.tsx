@@ -27,7 +27,12 @@ export function GradientButton({
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
-        style={[styles.base, styles.outline, isDisabled && styles.disabled, style]}
+        style={[
+          styles.base,
+          styles.outline,
+          isDisabled && styles.disabled,
+          style,
+        ]}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? title}
         accessibilityState={{ disabled: isDisabled, busy: loading }}
@@ -44,7 +49,12 @@ export function GradientButton({
       <Pressable
         onPress={onPress}
         disabled={isDisabled}
-        style={[styles.base, styles.ghost, isDisabled && styles.disabled, style]}
+        style={[
+          styles.base,
+          styles.ghost,
+          isDisabled && styles.disabled,
+          style,
+        ]}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? title}

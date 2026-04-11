@@ -110,9 +110,7 @@ export default function SignInScreen() {
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <Text style={[typography.titleLg, styles.backLabel]}>
-              ← Back
-            </Text>
+            <Text style={[typography.titleLg, styles.backLabel]}>← Back</Text>
           </Pressable>
 
           <Text style={[typography.displaySm, styles.title]}>
@@ -227,7 +225,9 @@ export default function SignInScreen() {
             hitSlop={12}
             accessibilityRole="button"
           >
-            <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}
+            >
               New here?{" "}
               <Text style={styles.switchLinkEmphasis}>Create an account</Text>
             </Text>
