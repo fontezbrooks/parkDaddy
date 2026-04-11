@@ -11,6 +11,12 @@ export const fontFamilies = {
 } as const;
 
 export const typography = {
+  displayHero: {
+    fontFamily: fontFamilies.displayExtraBold,
+    fontSize: 88,
+    lineHeight: 86,
+    letterSpacing: -3,
+  } satisfies TextStyle,
   displayXl: {
     fontFamily: fontFamilies.displayExtraBold,
     fontSize: 64,

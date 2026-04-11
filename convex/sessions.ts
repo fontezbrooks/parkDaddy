@@ -35,6 +35,45 @@ export const getActive = query({
   },
 });
 
+export const getLastParked = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return null;
+
+    const completed = await ctx.db
+      .query("sessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", user._id).eq("status", "completed"),
+      )
+      .collect();
+
+    const cancelled = await ctx.db
+      .query("sessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", user._id).eq("status", "cancelled"),
+      )
+      .collect();
+
+    const all = [...completed, ...cancelled].sort(
+      (a, b) => b._creationTime - a._creationTime,
+    );
+    const latest = all[0];
+    if (!latest) return null;
+
+    return {
+      plate: latest.plate,
+      endedAt: latest.lastParkEnd ?? latest._creationTime,
+    };
+  },
+});
+
 export const listHistory = query({
   args: {},
   handler: async (ctx) => {
