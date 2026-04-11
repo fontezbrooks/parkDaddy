@@ -3,7 +3,7 @@
     "name": "parkDaddy",
     "slug": "parkDaddy",
     "owner": "carlhiggins",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.parkdaddy.app",
-      "buildNumber": "2",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -28,13 +28,13 @@
         "backgroundColor": "#f9f9fb"
       },
       "package": "com.parkdaddy.app",
-      "versionCode": 2,
-      "privacy": "unlisted"
+      "versionCode": 2
     },
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-secure-store",
+      "expo-auth-session",
       [
         "expo-notifications",
         {

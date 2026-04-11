@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Text, Pressable, StyleSheet, View } from "react-native";
 import { useSSO } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { colors, typography, spacing, radius } from "@/src/theme";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -19,6 +20,7 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
+        redirectUrl: Linking.createURL("/oauth-callback"),
       });
 
       if (createdSessionId && setActive) {
