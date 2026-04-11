@@ -38,7 +38,7 @@ export default function SettingsScreen() {
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
   const deleteVehicle = useMutation(api.vehicles.remove);
 
-  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+  const appVersion = Constants.expoConfig?.version ?? "2.0.0";
 
   return (
     <SafeAreaView style={styles.container}>
