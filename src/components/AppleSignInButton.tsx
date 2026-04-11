@@ -1,28 +1,26 @@
-import { useState, useCallback } from "react";
-import { Text, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useSSO } from "@clerk/clerk-expo";
-import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { colors, typography, spacing, radius } from "@/src/theme";
-import * as Sentry from "@sentry/react-native";
-WebBrowser.maybeCompleteAuthSession();
 
 type Props = {
   label?: string;
 };
 
-export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
+export function AppleSignInButton({ label = "Continue with Apple" }: Props) {
   const { startSSOFlow } = useSSO();
   const [loading, setLoading] = useState(false);
 
   const handlePress = useCallback(async () => {
+    if (Platform.OS !== "ios") return;
     setLoading(true);
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: "oauth_google",
+        strategy: "oauth_apple",
         redirectUrl: Linking.createURL("oauth_callback"),
       });
-
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
       }
@@ -32,13 +30,15 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
           ? String((error as { message?: unknown }).message)
           : undefined;
       console.error(
-        "Google SSO sign-in failed or was cancelled:",
+        "Apple SSO sign-in failed or was cancelled:",
         message ?? "(no error message)",
       );
     } finally {
       setLoading(false);
     }
   }, [startSSOFlow]);
+
+  if (Platform.OS !== "ios") return null;
 
   return (
     <Pressable
@@ -48,8 +48,8 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <View style={styles.googleIcon}>
-        <Text style={styles.googleG}>G</Text>
+      <View style={styles.icon}>
+        <Text style={styles.apple}></Text>
       </View>
       <Text style={[typography.titleLg, styles.label]}>
         {loading ? "Signing in..." : label}
@@ -58,37 +58,35 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
   );
 }
 
+// Gate on native availability so non-iOS bundles still typecheck
+export const appleAvailableAsync = AppleAuthentication.isAvailableAsync;
+
 const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.onSurface,
     borderRadius: radius.lg,
     paddingVertical: spacing.md + 2,
     paddingHorizontal: spacing["2xl"],
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
     gap: spacing.md,
-    minHeight: 52,
   },
   disabled: {
     opacity: 0.5,
   },
-  googleIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+  icon: {
+    width: 22,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  googleG: {
-    fontSize: 16,
-    fontFamily: "Figtree_700Bold",
-    color: "#4285F4",
+  apple: {
+    color: colors.onPrimary,
+    fontSize: 20,
+    marginTop: -3,
   },
   label: {
-    color: colors.onSurface,
+    color: colors.onPrimary,
   },
 });

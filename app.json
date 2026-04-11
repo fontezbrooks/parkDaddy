@@ -17,9 +17,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.parkdaddy.app",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Use Face ID to quickly sign in to parkDaddy"
       }
     },
     "android": {
@@ -34,14 +35,22 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
-      "expo-auth-session",
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
           "color": "#000666"
         }
-      ]
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "parkdaddy",
+          "organization": "appdaddystudios"
+        }
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "router": {},

@@ -64,11 +64,11 @@ export default function ConfirmStopScreen() {
               { color: colors.onSurfaceVariant, textAlign: "center" },
             ]}
           >
-            We'll stop auto-renewing for{" "}
+            Stopping auto-renewing for{" "}
             <Text style={{ fontFamily: "Inter_600SemiBold" }}>
               {session?.plate}
             </Text>
-            . Your guest's current registration stays valid until {validUntil}.
+            . Current registration stays valid until {validUntil}.
           </Text>
 
           {error ? (

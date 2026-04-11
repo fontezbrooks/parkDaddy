@@ -10,6 +10,7 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { CountdownTimer } from "@/src/components/CountdownTimer";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Sentry from "@sentry/react-native";
 
 function Header() {
   return (
@@ -75,6 +76,9 @@ function InactiveState() {
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to start session");
+      Sentry.captureException(
+        err instanceof Error ? err : new Error("Failed to start session"),
+      );
     } finally {
       setLoadingPlate(null);
     }
@@ -88,8 +92,7 @@ function InactiveState() {
             Park a guest
           </Text>
           <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-            Add a vehicle and we'll handle the rest. Auto-renewing,
-            auto-everything.
+            Add a vehicle. We handlethe rest. Auto-renewing. Auto-everything.
           </Text>
         </View>
         <GradientButton
@@ -149,7 +152,7 @@ function ActiveState({
         <Text
           style={[typography.headlineSm, { color: "rgba(255,255,255,0.7)" }]}
         >
-          You're covered until
+          Protected until
         </Text>
         <Text style={[typography.displayLg, { color: colors.onPrimary }]}>
           {endTimeFormatted}
@@ -195,7 +198,7 @@ function ErrorState({
     <View style={styles.content}>
       <SurfaceCard level={2}>
         <Text style={[typography.headlineMd, { color: colors.secondary }]}>
-          Heads up — renewal didn't go through
+          Heads up — renewal attempt failed
         </Text>
         <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
           {validUntil

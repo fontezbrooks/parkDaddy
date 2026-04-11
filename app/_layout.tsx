@@ -4,13 +4,19 @@ import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { useFonts } from "expo-font";
 import {
-  useFonts,
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import {
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+} from "@expo-google-fonts/figtree";
 import {
   BricolageGrotesque_600SemiBold,
   BricolageGrotesque_700Bold,
@@ -18,6 +24,29 @@ import {
 } from "@expo-google-fonts/bricolage-grotesque";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
+import * as Sentry from "@sentry/react-native";
+
+Sentry.init({
+  dsn: "https://c5e178a1ee7e58a13119ca9eb07ed0fe@o4510285264715776.ingest.us.sentry.io/4510285279985664",
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [
+    Sentry.mobileReplayIntegration(),
+    Sentry.feedbackIntegration(),
+  ],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -86,12 +115,16 @@ function RootLayoutInner() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Figtree_400Regular,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
     BricolageGrotesque_600SemiBold,
     BricolageGrotesque_700Bold,
     BricolageGrotesque_800ExtraBold,
@@ -112,4 +145,4 @@ export default function RootLayout() {
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );
-}
+});

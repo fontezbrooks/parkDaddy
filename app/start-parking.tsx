@@ -61,11 +61,6 @@ export default function StartParkingScreen() {
     return new Date(Date.now() + actualMinutes * 60 * 1000);
   }, [actualMinutes]);
 
-  const renewalCount = useMemo(() => {
-    if (!actualMinutes) return 0;
-    return Math.ceil(actualMinutes / 120);
-  }, [actualMinutes]);
-
   const canProceed = plate.length >= 2 && selectedMinutes !== null;
 
   const handleParkThisCar = useCallback(async () => {
@@ -174,7 +169,7 @@ export default function StartParkingScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              We'll auto-renew every 2 hours so your guest stays compliant.
+              We auto-renew every 2 hours so your guest stays compliant.
             </Text>
           </View>
         )}

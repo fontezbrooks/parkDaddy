@@ -1,12 +1,21 @@
-import { useState, useCallback } from "react";
-import { View, Text, TextInput, StyleSheet } from "react-native";
+import { useState, useCallback, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useUser } from "@clerk/clerk-expo";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { router } from "expo-router";
-import { colors, typography, spacing, radius } from "@/src/theme";
+import { colors, typography, spacing } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
+import { FormField } from "@/src/components/FormField";
 
 export default function ProfileSetupScreen() {
   const { user } = useUser();
@@ -21,9 +30,13 @@ export default function ProfileSetupScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const lastNameRef = useRef<TextInput>(null);
+  const mobileRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+
   const handleSubmit = useCallback(async () => {
     if (!firstName || !lastName || !mobile || !email) {
-      setError("All fields are required");
+      setError("Fill in all four fields to continue.");
       return;
     }
     setLoading(true);
@@ -33,91 +46,105 @@ export default function ProfileSetupScreen() {
       await upsertProfile({ firstName, lastName, email, mobile });
       router.replace("/(tabs)");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save profile");
+      setError(
+        err instanceof Error ? err.message : "Couldn't save your profile.",
+      );
     } finally {
       setLoading(false);
     }
   }, [firstName, lastName, mobile, email, upsertProfile]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>P</Text>
-        </View>
-        <Text style={[typography.headlineSm, { color: colors.primary }]}>
-          parkDaddy
-        </Text>
-      </View>
-
-      <Text
-        style={[
-          typography.headlineLg,
-          {
-            color: colors.onSurface,
-            textAlign: "center",
-            marginTop: spacing.lg,
-          },
-        ]}
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.kav}
       >
-        Quick setup
-      </Text>
-      <Text style={[typography.bodyMd, styles.subtitle]}>
-        ParkEaz needs these details to register your guest's vehicle. We never
-        share your info.
-      </Text>
-
-      <View style={styles.form}>
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="First name"
-            placeholderTextColor={colors.onSurfaceVariant}
-            value={firstName}
-            onChangeText={setFirstName}
-            textContentType="givenName"
-          />
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Last name"
-            placeholderTextColor={colors.onSurfaceVariant}
-            value={lastName}
-            onChangeText={setLastName}
-            textContentType="familyName"
-          />
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder="Phone number"
-          placeholderTextColor={colors.onSurfaceVariant}
-          value={mobile}
-          onChangeText={setMobile}
-          keyboardType="phone-pad"
-          textContentType="telephoneNumber"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.onSurfaceVariant}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-        />
-
-        {error ? (
-          <Text style={[typography.bodySm, { color: colors.secondary }]}>
-            {error}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={[typography.labelSm, styles.kicker]}>Almost there</Text>
+          <Text style={[typography.displaySm, styles.title]}>
+            A couple details.
           </Text>
-        ) : null}
+          <Text style={[typography.bodyLg, styles.subtitle]}>
+            We use these to register vehicles for your guests with ParkEaz.
+            Never shared.
+          </Text>
 
-        <GradientButton
-          title={loading ? "Saving..." : "Get Started"}
-          onPress={handleSubmit}
-          disabled={loading}
-        />
-      </View>
+          <View style={styles.form}>
+            <View style={styles.row}>
+              <FormField
+                label="First name"
+                value={firstName}
+                onChangeText={setFirstName}
+                textContentType="givenName"
+                autoComplete="given-name"
+                returnKeyType="next"
+                onSubmitEditing={() => lastNameRef.current?.focus()}
+                blurOnSubmit={false}
+                containerStyle={styles.half}
+              />
+              <FormField
+                ref={lastNameRef}
+                label="Last name"
+                value={lastName}
+                onChangeText={setLastName}
+                textContentType="familyName"
+                autoComplete="family-name"
+                returnKeyType="next"
+                onSubmitEditing={() => mobileRef.current?.focus()}
+                blurOnSubmit={false}
+                containerStyle={styles.half}
+              />
+            </View>
+
+            <FormField
+              ref={mobileRef}
+              label="Phone number"
+              value={mobile}
+              onChangeText={setMobile}
+              keyboardType="phone-pad"
+              textContentType="telephoneNumber"
+              autoComplete="tel"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
+              placeholder="(555) 123-4567"
+            />
+
+            <FormField
+              ref={emailRef}
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              returnKeyType="go"
+              onSubmitEditing={handleSubmit}
+            />
+
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={[typography.bodySm, styles.errorText]}>
+                  {error}
+                </Text>
+              </View>
+            ) : null}
+
+            <GradientButton
+              title={loading ? "Saving…" : "Finish setup"}
+              onPress={handleSubmit}
+              disabled={loading}
+              loading={loading}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -126,50 +153,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
   },
-  header: {
-    alignItems: "center",
-    marginTop: spacing["3xl"],
-    gap: spacing.sm,
+  kav: {
+    flex: 1,
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing["2xl"],
+    paddingBottom: spacing["3xl"],
   },
-  iconText: {
-    color: colors.onPrimary,
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
+  kicker: {
+    color: colors.accent,
+    marginTop: spacing["2xl"],
+  },
+  title: {
+    color: colors.onSurface,
+    marginTop: spacing.sm,
   },
   subtitle: {
     color: colors.onSurfaceVariant,
-    textAlign: "center",
-    marginTop: spacing.lg,
-    marginBottom: spacing["3xl"],
-    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing["2xl"],
   },
   form: {
     gap: spacing.lg,
   },
   row: {
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  input: {
-    backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-    color: colors.onSurface,
-  },
-  halfInput: {
+  half: {
     flex: 1,
+  },
+  errorBox: {
+    backgroundColor: colors.errorContainer,
+    padding: spacing.md,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: colors.error,
   },
 });

@@ -35,11 +35,6 @@ export default function ExtendDurationScreen() {
     return new Date(session.desiredEndTime + selectedMinutes * 60 * 1000);
   }, [session, selectedMinutes]);
 
-  const additionalRenewals = useMemo(() => {
-    if (!selectedMinutes) return 0;
-    return Math.ceil(selectedMinutes / 120);
-  }, [selectedMinutes]);
-
   const handleExtend = useCallback(async () => {
     if (!session || !selectedMinutes) return;
     setLoading(true);
@@ -135,7 +130,7 @@ export default function ExtendDurationScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              We'll keep auto-renewing for you.
+              We keep auto-renewing for you.
             </Text>
           </View>
         )}
