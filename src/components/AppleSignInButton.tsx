@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useSSO } from "@clerk/clerk-expo";
 import * as Linking from "expo-linking";
+import { router } from "expo-router";
 import { colors, typography, spacing, radius } from "@/src/theme";
 
 type Props = {
@@ -23,6 +24,7 @@ export function AppleSignInButton({ label = "Continue with Apple" }: Props) {
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        router.replace("/(tabs)");
       }
     } catch (error) {
       const message =

@@ -3,6 +3,7 @@ import { Text, Pressable, StyleSheet, View } from "react-native";
 import { useSSO } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
+import { router } from "expo-router";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import * as Sentry from "@sentry/react-native";
 WebBrowser.maybeCompleteAuthSession();
@@ -25,6 +26,7 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        router.replace("/(tabs)");
       }
     } catch (error) {
       const message =
