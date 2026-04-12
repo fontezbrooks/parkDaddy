@@ -1,92 +1,269 @@
+import { useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   SectionList,
   Pressable,
-  ActivityIndicator,
+  AccessibilityInfo,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { colors, typography, spacing, radius } from "@/src/theme";
+import { router } from "expo-router";
+import Animated, {
+  Easing,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+  withRepeat,
+  withSequence,
+  interpolate,
+} from "react-native-reanimated";
+import { colors, typography, spacing } from "@/src/theme";
+
+const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
 
 type SessionItem = NonNullable<
   ReturnType<typeof useQuery<typeof api.sessions.listHistory>>
 >[number];
 
-function getStatusConfig(status: string) {
+function getStatusStyle(status: string) {
   switch (status) {
     case "completed":
-      return { color: colors.tertiary, label: "Completed" };
+      return { color: colors.primary, label: "Completed" };
     case "cancelled":
-      return { color: "#FFD60A", label: "Stopped Early" };
+      return { color: colors.onSurfaceMuted, label: "Ended early" };
     case "failed":
-      return { color: colors.secondary, label: "Failed" };
+      return { color: colors.error, label: "Failed" };
     default:
       return { color: colors.onSurfaceVariant, label: status };
   }
 }
 
-function groupByPeriod(sessions: SessionItem[]) {
-  const now = Date.now();
-  const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+function computeSummary(sessions: SessionItem[]) {
+  const now = new Date();
+  const thisMonth = sessions.filter((s) => {
+    const d = new Date(s._creationTime);
+    return (
+      d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+    );
+  });
+  const totalHours = Math.round(
+    sessions.reduce(
+      (acc, s) => acc + (s.desiredEndTime - s._creationTime) / 3600000,
+      0,
+    ),
+  );
+  const failedCount = sessions.filter((s) => s.status === "failed").length;
+  return {
+    total: sessions.length,
+    thisMonth: thisMonth.length,
+    totalHours,
+    allGood: failedCount === 0,
+  };
+}
 
+function groupByPeriod(sessions: SessionItem[]) {
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const recent: SessionItem[] = [];
   const older: SessionItem[] = [];
-
   for (const s of sessions) {
-    if (s._creationTime >= thirtyDaysAgo) {
-      recent.push(s);
-    } else {
-      older.push(s);
-    }
+    (s._creationTime >= thirtyDaysAgo ? recent : older).push(s);
   }
-
   const sections = [];
-  if (recent.length > 0) {
-    sections.push({ title: "Last 30 Days", data: recent });
-  }
-  if (older.length > 0) {
-    sections.push({ title: "Older", data: older });
-  }
+  if (recent.length > 0)
+    sections.push({ title: "Last 30 days", data: recent });
+  if (older.length > 0) sections.push({ title: "Older", data: older });
   return sections;
 }
 
-function SessionCard({ session }: { session: SessionItem }) {
-  const statusConfig = getStatusConfig(session.status);
-  const date = new Date(session._creationTime);
-  const durationMs = session.desiredEndTime - session._creationTime;
-  const durationHours = Math.round((durationMs / (60 * 60 * 1000)) * 10) / 10;
+function LoadingState() {
+  const pulse = useSharedValue(0.4);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.4, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      false,
+    );
+  }, [pulse]);
+  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  return (
+    <View style={styles.centered}>
+      <Animated.Text style={[typography.bodyLg, styles.loadingText, style]}>
+        Loading your history…
+      </Animated.Text>
+    </View>
+  );
+}
+
+function useStaggerEntrance(deps: unknown[] = []) {
+  const v1 = useSharedValue(0);
+  const v2 = useSharedValue(0);
+  const v3 = useSharedValue(0);
+  const v4 = useSharedValue(0);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then((r) => {
+      const d = r ? 0 : 1;
+      const base = r ? 120 : 520;
+      v1.value = withDelay(
+        80 * d,
+        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
+      );
+      v2.value = withDelay(
+        200 * d,
+        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
+      );
+      v3.value = withDelay(
+        360 * d,
+        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
+      );
+      v4.value = withDelay(
+        500 * d,
+        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+
+  const s1 = useAnimatedStyle(() => ({
+    opacity: v1.value,
+    transform: [{ translateY: interpolate(v1.value, [0, 1], [10, 0]) }],
+  }));
+  const s2 = useAnimatedStyle(() => ({
+    opacity: v2.value,
+    transform: [{ translateY: interpolate(v2.value, [0, 1], [16, 0]) }],
+  }));
+  const s3 = useAnimatedStyle(() => ({
+    opacity: v3.value,
+    transform: [{ translateY: interpolate(v3.value, [0, 1], [16, 0]) }],
+  }));
+  const s4 = useAnimatedStyle(() => ({
+    opacity: v4.value,
+    transform: [{ translateY: interpolate(v4.value, [0, 1], [20, 0]) }],
+  }));
+
+  return [s1, s2, s3, s4] as const;
+}
+
+function EmptyState() {
+  const [kickerStyle, headingStyle, bodyStyle, ctaStyle] =
+    useStaggerEntrance();
 
   return (
-    <Pressable style={styles.card}>
-      <View style={styles.cardLeft}>
-        <View
-          style={[styles.statusDot, { backgroundColor: statusConfig.color }]}
-        />
-        <View style={styles.cardInfo}>
-          <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
-            {date.toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
+    <View style={styles.heroBlock}>
+      <Animated.Text style={[typography.labelSm, styles.kicker, kickerStyle]}>
+        Your guests
+      </Animated.Text>
+      <Animated.Text
+        style={[typography.displaySm, styles.heading, headingStyle]}
+      >
+        No guests yet.
+      </Animated.Text>
+      <Animated.Text style={[typography.bodyLg, styles.emptyBody, bodyStyle]}>
+        When you park a guest, the receipts show up here.
+      </Animated.Text>
+      <Animated.View style={[styles.ctaWrap, ctaStyle]}>
+        <Pressable
+          onPress={() => router.push("/start-parking")}
+          style={({ pressed }) => [
+            styles.primaryCta,
+            pressed && styles.pressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Park a guest"
+        >
+          <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
+            Park a guest
           </Text>
-          <Text style={[typography.headlineSm, { color: colors.primary }]}>
-            {session.plate}
-          </Text>
-          <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
-            {durationHours} hours parked
-          </Text>
-        </View>
-      </View>
-      <View style={[styles.badge, { backgroundColor: statusConfig.color }]}>
-        <Text style={[typography.labelSm, { color: "#fff" }]}>
-          {statusConfig.label}
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
+
+function SummaryHeader({
+  summary,
+}: {
+  summary: ReturnType<typeof computeSummary>;
+}) {
+  const [kickerStyle, headingStyle, bodyStyle] = useStaggerEntrance();
+
+  const headingText =
+    summary.thisMonth > 0
+      ? summary.allGood
+        ? "All covered."
+        : "Mostly covered."
+      : "All caught up.";
+
+  const bodyParts: string[] = [];
+  if (summary.thisMonth > 0) {
+    bodyParts.push(
+      `${summary.thisMonth} ${summary.thisMonth === 1 ? "session" : "sessions"} this month`,
+    );
+  }
+  if (summary.totalHours > 0) {
+    bodyParts.push(`${summary.totalHours} hours parked`);
+  }
+  const bodyText =
+    bodyParts.length > 0
+      ? bodyParts.join(" · ")
+      : `${summary.total} sessions total`;
+
+  return (
+    <View style={styles.summaryBlock}>
+      <Animated.Text style={[typography.labelSm, styles.kicker, kickerStyle]}>
+        Your guests
+      </Animated.Text>
+      <Animated.Text
+        style={[typography.displaySm, styles.heading, headingStyle]}
+      >
+        {headingText}
+      </Animated.Text>
+      <Animated.Text
+        style={[typography.bodyMd, styles.summaryBody, bodyStyle]}
+      >
+        {bodyText}
+      </Animated.Text>
+    </View>
+  );
+}
+
+function SessionRow({ session }: { session: SessionItem }) {
+  const status = getStatusStyle(session.status);
+  const date = new Date(session._creationTime);
+  const durationHours =
+    Math.round(
+      ((session.desiredEndTime - session._creationTime) / 3600000) * 10,
+    ) / 10;
+
+  return (
+    <View
+      style={styles.sessionRow}
+      accessible
+      accessibilityLabel={`${session.plate}, ${status.label}, ${durationHours} hours on ${date.toLocaleDateString()}`}
+    >
+      <View>
+        <Text style={[typography.headlineMd, styles.sessionPlate]}>
+          {session.plate}
+        </Text>
+        <Text style={[typography.bodySm, styles.sessionMeta]}>
+          {date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          })}{" "}
+          · {durationHours}h
         </Text>
       </View>
-    </Pressable>
+      <Text style={[typography.bodySm, { color: status.color }]}>
+        {status.label}
+      </Text>
+    </View>
   );
 }
 
@@ -95,47 +272,40 @@ export default function HistoryScreen() {
   const isLoading = sessionsResult === undefined;
   const sessions = sessionsResult ?? [];
   const sections = groupByPeriod(sessions);
+  const summary = computeSummary(sessions);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LoadingState />
+      </SafeAreaView>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <EmptyState />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text
-        style={[
-          typography.headlineLg,
-          {
-            color: colors.onSurface,
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing.lg,
-          },
-        ]}
-      >
-        History
-      </Text>
-
-      {isLoading ? (
-        <View style={styles.empty}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : sections.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}>
-            No guests parked yet. When you do, the receipts show up here.
+      <SectionList
+        ListHeaderComponent={<SummaryHeader summary={summary} />}
+        sections={sections}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => <SessionRow session={item} />}
+        renderSectionHeader={({ section }) => (
+          <Text style={[typography.labelSm, styles.sectionHeader]}>
+            {section.title}
           </Text>
-        </View>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item._id}
-          renderItem={({ item }) => <SessionCard session={item} />}
-          renderSectionHeader={({ section }) => (
-            <Text style={[typography.labelMd, styles.sectionHeader]}>
-              {section.title}
-            </Text>
-          )}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-          stickySectionHeadersEnabled={false}
-        />
-      )}
+        )}
+        contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 }
@@ -145,43 +315,89 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing["3xl"],
-  },
-  sectionHeader: {
-    color: colors.onSurfaceVariant,
-    paddingVertical: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  cardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  cardInfo: {
-    gap: 2,
-  },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  empty: {
+  centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: spacing["2xl"],
+  },
+  loadingText: {
+    color: colors.onSurfaceVariant,
+  },
+
+  heroBlock: {
+    flex: 1,
+    paddingHorizontal: spacing["2xl"],
+    paddingTop: spacing["3xl"],
+    justifyContent: "flex-start",
+  },
+  kicker: {
+    color: colors.accent,
+    marginBottom: spacing.sm,
+  },
+  heading: {
+    color: colors.primary,
+    marginBottom: spacing.md,
+  },
+  emptyBody: {
+    color: colors.onSurfaceVariant,
+    maxWidth: 320,
+    marginBottom: spacing["3xl"],
+  },
+  ctaWrap: {
+    marginTop: "auto",
+    paddingBottom: spacing.lg,
+  },
+  primaryCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.lg + 2,
+    paddingHorizontal: spacing["2xl"],
+    borderRadius: 12,
+    minHeight: 56,
+  },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  primaryCtaLabel: {
+    color: colors.onPrimary,
+  },
+
+  summaryBlock: {
+    paddingHorizontal: spacing["2xl"],
+    paddingTop: spacing["3xl"],
+    paddingBottom: spacing["2xl"],
+  },
+  summaryBody: {
+    color: colors.onSurfaceVariant,
+  },
+
+  listContent: {
+    paddingBottom: spacing["3xl"],
+  },
+  sectionHeader: {
+    color: colors.onSurfaceMuted,
+    paddingHorizontal: spacing["2xl"],
+    paddingTop: spacing["2xl"],
+    paddingBottom: spacing.md,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing["2xl"],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outlineVariant,
+  },
+  sessionPlate: {
+    color: colors.primary,
+  },
+  sessionMeta: {
+    color: colors.onSurfaceVariant,
+    marginTop: spacing.xs,
   },
 });

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   Switch,
   Pressable,
-  FlatList,
   Alert,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -19,7 +19,18 @@ import { SurfaceCard } from "@/src/components/SurfaceCard";
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
+  const { user: clerkUser } = useUser();
+  const profile = useQuery(api.users.getProfile);
+  const vehicles = useQuery(api.vehicles.list) ?? [];
+  const updatePrefs = useMutation(api.users.updateNotificationPrefs);
+  const deleteVehicle = useMutation(api.vehicles.remove);
+  const deleteAccountMutation = useMutation(api.users.deleteAccount);
+  const activeSession = useQuery(api.sessions.getActive);
+
   const [signingOut, setSigningOut] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const appVersion = Constants.expoConfig?.version ?? "2.0.0";
 
   const handleSignOut = () => {
     Alert.alert("Sign out?", "You can always sign back in.", [
@@ -34,14 +45,6 @@ export default function SettingsScreen() {
       },
     ]);
   };
-  const profile = useQuery(api.users.getProfile);
-  const vehicles = useQuery(api.vehicles.list) ?? [];
-  const updatePrefs = useMutation(api.users.updateNotificationPrefs);
-  const deleteVehicle = useMutation(api.vehicles.remove);
-  const { user: clerkUser } = useUser();
-  const deleteAccountMutation = useMutation(api.users.deleteAccount);
-  const activeSession = useQuery(api.sessions.getActive);
-  const [deleting, setDeleting] = useState(false);
 
   const handleDeleteAccount = () => {
     const hasActive = activeSession != null;
@@ -74,28 +77,19 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const appVersion = Constants.expoConfig?.version ?? "2.0.0";
-
   return (
-    <SafeAreaView style={styles.container}>
-      <Text
-        style={[
-          typography.headlineLg,
-          {
-            color: colors.onSurface,
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing.lg,
-          },
-        ]}
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        Settings
-      </Text>
+        <Text style={[typography.labelSm, styles.kicker]}>Your stuff</Text>
+        <Text style={[typography.displaySm, styles.heading]}>Settings</Text>
 
-      <View style={styles.content}>
-        {/* Profile Section */}
-        <SurfaceCard level={2}>
-          <Text style={[typography.labelMd, styles.sectionTitle]}>PROFILE</Text>
-          {profile && (
+        {/* Profile */}
+        {profile && (
+          <SurfaceCard level={2} style={styles.profileCard}>
             <View style={styles.profileInfo}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
@@ -103,7 +97,7 @@ export default function SettingsScreen() {
                   {profile.lastName?.[0] ?? ""}
                 </Text>
               </View>
-              <View>
+              <View style={styles.profileDetails}>
                 <Text style={[typography.titleLg, { color: colors.onSurface }]}>
                   {profile.firstName} {profile.lastName}
                 </Text>
@@ -125,13 +119,13 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-          )}
-        </SurfaceCard>
+          </SurfaceCard>
+        )}
 
-        {/* Vehicles Section */}
-        <SurfaceCard level={2}>
-          <Text style={[typography.labelMd, styles.sectionTitle]}>
-            SAVED VEHICLES
+        {/* Vehicles */}
+        <View style={styles.section}>
+          <Text style={[typography.headlineSm, styles.sectionTitle]}>
+            Saved vehicles
           </Text>
           {vehicles.length === 0 ? (
             <Text
@@ -140,43 +134,65 @@ export default function SettingsScreen() {
               No saved vehicles yet
             </Text>
           ) : (
-            <FlatList
-              data={vehicles}
-              keyExtractor={(item) => item._id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <View style={styles.vehicleRow}>
-                  <Text style={[typography.titleLg, { color: colors.primary }]}>
-                    {item.plate}
-                  </Text>
-                  <Pressable
-                    onPress={() => deleteVehicle({ vehicleId: item._id })}
+            vehicles.map((item) => (
+              <View key={item._id} style={styles.vehicleRow}>
+                <Text style={[typography.titleLg, { color: colors.primary }]}>
+                  {item.plate}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    Alert.alert(
+                      `Remove ${item.plate}?`,
+                      "This won't affect active parking sessions.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Remove",
+                          style: "destructive",
+                          onPress: () =>
+                            deleteVehicle({ vehicleId: item._id }),
+                        },
+                      ],
+                    );
+                  }}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.plate}`}
+                >
+                  <Text
+                    style={[
+                      typography.bodySm,
+                      { color: colors.onSurfaceMuted },
+                    ]}
                   >
-                    <Text
-                      style={[typography.bodySm, { color: colors.secondary }]}
-                    >
-                      Remove
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-              ItemSeparatorComponent={() => (
-                <View style={{ height: spacing.sm }} />
-              )}
-            />
+                    Remove
+                  </Text>
+                </Pressable>
+              </View>
+            ))
           )}
-        </SurfaceCard>
+        </View>
 
-        {/* Notifications Section */}
+        {/* Notifications */}
         {profile && (
-          <SurfaceCard level={2}>
-            <Text style={[typography.labelMd, styles.sectionTitle]}>
-              NOTIFICATIONS
+          <View style={styles.section}>
+            <Text style={[typography.headlineSm, styles.sectionTitle]}>
+              Notifications
             </Text>
             <View style={styles.toggleRow}>
-              <Text style={[typography.bodyMd, { color: colors.onSurface }]}>
-                Expiry Warnings
-              </Text>
+              <View style={styles.toggleInfo}>
+                <Text style={[typography.bodyMd, { color: colors.onSurface }]}>
+                  Expiry warnings
+                </Text>
+                <Text
+                  style={[
+                    typography.bodySm,
+                    { color: colors.onSurfaceMuted },
+                  ]}
+                >
+                  15 minutes before parking expires
+                </Text>
+              </View>
               <Switch
                 value={profile.notifyOnExpiry}
                 onValueChange={(val: boolean) => {
@@ -192,9 +208,19 @@ export default function SettingsScreen() {
               />
             </View>
             <View style={styles.toggleRow}>
-              <Text style={[typography.bodyMd, { color: colors.onSurface }]}>
-                Renewal Success Alerts
-              </Text>
+              <View style={styles.toggleInfo}>
+                <Text style={[typography.bodyMd, { color: colors.onSurface }]}>
+                  Renewal alerts
+                </Text>
+                <Text
+                  style={[
+                    typography.bodySm,
+                    { color: colors.onSurfaceMuted },
+                  ]}
+                >
+                  When auto-renewal succeeds
+                </Text>
+              </View>
               <Switch
                 value={profile.notifyOnSuccess}
                 onValueChange={(val: boolean) => {
@@ -209,33 +235,44 @@ export default function SettingsScreen() {
                 }}
               />
             </View>
-          </SurfaceCard>
+          </View>
         )}
 
-        {/* App Info */}
-        <SurfaceCard level={2}>
-          <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleSignOut}
+            style={styles.signOutButton}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
+            <Text
+              style={[
+                typography.bodyMd,
+                { color: colors.onSurfaceVariant },
+              ]}
+            >
+              {signingOut ? "Signing out..." : "Sign out"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={deleting}
+            style={styles.deleteButton}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+          >
+            <Text style={[typography.bodySm, { color: colors.secondary }]}>
+              {deleting ? "Deleting account..." : "Delete account"}
+            </Text>
+          </Pressable>
+
+          <Text style={[typography.bodySm, styles.version]}>
             parkDaddy Mobile · v{appVersion}
           </Text>
-        </SurfaceCard>
-
-        {/* Sign Out */}
-        <Pressable onPress={handleSignOut} style={styles.signOutButton}>
-          <Text style={[typography.titleLg, { color: colors.secondary }]}>
-            {signingOut ? "Signing out..." : "Sign Out"}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={handleDeleteAccount}
-          disabled={deleting}
-          style={styles.deleteButton}
-        >
-          <Text style={[typography.bodySm, { color: colors.secondary }]}>
-            {deleting ? "Deleting account..." : "Delete account"}
-          </Text>
-        </Pressable>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -245,20 +282,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.lg,
+  scroll: {
+    paddingHorizontal: spacing["2xl"],
+    paddingBottom: spacing["3xl"],
   },
-  sectionTitle: {
-    color: colors.onSurfaceVariant,
+  kicker: {
+    color: colors.accent,
+    marginTop: spacing["2xl"],
+  },
+  heading: {
+    color: colors.primary,
+    marginTop: spacing.sm,
+    marginBottom: spacing["2xl"],
+  },
+  profileCard: {
     marginBottom: spacing.md,
   },
   profileInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  profileDetails: {
+    flex: 1,
   },
   avatar: {
     width: 48,
@@ -271,25 +317,47 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.onPrimary,
     fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Figtree_600SemiBold",
+  },
+  section: {
+    paddingTop: spacing["2xl"],
+  },
+  sectionTitle: {
+    color: colors.onSurface,
+    marginBottom: spacing.lg,
   },
   vehicleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.outlineVariant,
   },
   toggleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: spacing.lg,
+  },
+  footer: {
+    marginTop: spacing["4xl"],
+    alignItems: "center",
+    gap: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   signOutButton: {
-    alignItems: "center",
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   deleteButton: {
-    alignItems: "center",
     paddingVertical: spacing.sm,
+  },
+  version: {
+    color: colors.onSurfaceMuted,
+    marginTop: spacing.md,
   },
 });

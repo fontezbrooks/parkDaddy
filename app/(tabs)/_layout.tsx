@@ -2,27 +2,26 @@ import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Tabs } from "expo-router";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { View, Text, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Home: "\u{2302}",
-    History: "\u{23F2}",
-    Settings: "\u{2699}",
-  };
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
+const TAB_ICONS: Record<string, { outline: IconName; filled: IconName }> = {
+  Home: { outline: "home-outline", filled: "home" },
+  History: { outline: "time-outline", filled: "time" },
+  Settings: { outline: "settings-outline", filled: "settings" },
+};
+
+function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const config = TAB_ICONS[name];
+  if (!config) return null;
   return (
-    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-      <Text
-        style={[
-          styles.iconText,
-          { color: focused ? colors.primary : colors.onSurfaceVariant },
-        ]}
-      >
-        {icons[name] ?? "?"}
-      </Text>
-    </View>
+    <Ionicons
+      name={focused ? config.filled : config.outline}
+      size={22}
+      color={focused ? colors.primary : colors.onSurfaceVariant}
+    />
   );
 }
 
@@ -47,7 +46,7 @@ export default function TabsLayout() {
           borderTopColor: colors.surfaceContainerHigh,
         },
         tabBarLabelStyle: {
-          fontFamily: "Inter_500Medium",
+          fontFamily: "Figtree_500Medium",
           fontSize: 10,
         },
       }}
@@ -82,19 +81,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  iconContainer: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconContainerActive: {
-    opacity: 1,
-  },
-  iconText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
-});
