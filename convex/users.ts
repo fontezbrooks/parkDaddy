@@ -73,3 +73,68 @@ export const updateNotificationPrefs = mutation({
     });
   },
 });
+
+export const deleteAccount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return;
+
+    // Cancel scheduled functions on active sessions
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user_status", (q) => q.eq("userId", user._id))
+      .collect();
+
+    for (const session of sessions) {
+      if (session.scheduledFunctionId) {
+        try {
+          await ctx.scheduler.cancel(session.scheduledFunctionId);
+        } catch {
+          // Already fired or cancelled
+        }
+      }
+      if (session.expiryWarningId) {
+        try {
+          await ctx.scheduler.cancel(session.expiryWarningId);
+        } catch {
+          // Already fired or cancelled
+        }
+      }
+
+      const logs = await ctx.db
+        .query("renewalLogs")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const log of logs) {
+        await ctx.db.delete(log._id);
+      }
+
+      await ctx.db.delete(session._id);
+    }
+
+    const vehicles = await ctx.db
+      .query("vehicles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const vehicle of vehicles) {
+      await ctx.db.delete(vehicle._id);
+    }
+
+    const pushTokens = await ctx.db
+      .query("pushTokens")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    for (const token of pushTokens) {
+      await ctx.db.delete(token._id);
+    }
+
+    await ctx.db.delete(user._id);
+  },
+});

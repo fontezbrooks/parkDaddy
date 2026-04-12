@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,17 +18,34 @@ import { GradientButton } from "@/src/components/GradientButton";
 import { FormField } from "@/src/components/FormField";
 
 export default function ProfileSetupScreen() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const upsertProfile = useMutation(api.users.upsertProfile);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [email, setEmail] = useState(
-    user?.primaryEmailAddress?.emailAddress ?? "",
-  );
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !isLoaded || !user) return;
+    prefilled.current = true;
+    if (user.firstName) setFirstName(user.firstName);
+    if (user.lastName) setLastName(user.lastName);
+    const clerkEmail = user.primaryEmailAddress?.emailAddress;
+    if (clerkEmail) setEmail(clerkEmail);
+  }, [isLoaded, user]);
+
+  // SSO users (Apple/Google) already have name + email from identity provider
+  const hasSsoProfile =
+    isLoaded &&
+    Boolean(
+      user?.firstName &&
+      user?.lastName &&
+      user?.primaryEmailAddress?.emailAddress,
+    );
 
   const lastNameRef = useRef<TextInput>(null);
   const mobileRef = useRef<TextInput>(null);
@@ -36,7 +53,11 @@ export default function ProfileSetupScreen() {
 
   const handleSubmit = useCallback(async () => {
     if (!firstName || !lastName || !mobile || !email) {
-      setError("Fill in all four fields to continue.");
+      setError(
+        hasSsoProfile
+          ? "Enter your phone number to continue."
+          : "Fill in all fields to continue.",
+      );
       return;
     }
     setLoading(true);
@@ -52,7 +73,9 @@ export default function ProfileSetupScreen() {
     } finally {
       setLoading(false);
     }
-  }, [firstName, lastName, mobile, email, upsertProfile]);
+  }, [firstName, lastName, mobile, email, upsertProfile, hasSsoProfile]);
+
+  if (!isLoaded) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -65,41 +88,46 @@ export default function ProfileSetupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[typography.labelSm, styles.kicker]}>Almost there</Text>
+          <Text style={[typography.labelSm, styles.kicker]}>
+            {hasSsoProfile ? "One more thing" : "Almost there"}
+          </Text>
           <Text style={[typography.displaySm, styles.title]}>
-            A couple details.
+            {hasSsoProfile ? "Your phone number." : "A couple details."}
           </Text>
           <Text style={[typography.bodyLg, styles.subtitle]}>
-            We use these to register vehicles for your guests with ParkEaz.
-            Never shared.
+            {hasSsoProfile
+              ? "ParkEaz needs this to register your guests. Never shared."
+              : "We use these to register vehicles for your guests with ParkEaz. Never shared."}
           </Text>
 
           <View style={styles.form}>
-            <View style={styles.row}>
-              <FormField
-                label="First name"
-                value={firstName}
-                onChangeText={setFirstName}
-                textContentType="givenName"
-                autoComplete="given-name"
-                returnKeyType="next"
-                onSubmitEditing={() => lastNameRef.current?.focus()}
-                blurOnSubmit={false}
-                containerStyle={styles.half}
-              />
-              <FormField
-                ref={lastNameRef}
-                label="Last name"
-                value={lastName}
-                onChangeText={setLastName}
-                textContentType="familyName"
-                autoComplete="family-name"
-                returnKeyType="next"
-                onSubmitEditing={() => mobileRef.current?.focus()}
-                blurOnSubmit={false}
-                containerStyle={styles.half}
-              />
-            </View>
+            {!hasSsoProfile && (
+              <View style={styles.row}>
+                <FormField
+                  label="First name"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  textContentType="givenName"
+                  autoComplete="given-name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastNameRef.current?.focus()}
+                  blurOnSubmit={false}
+                  containerStyle={styles.half}
+                />
+                <FormField
+                  ref={lastNameRef}
+                  label="Last name"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  textContentType="familyName"
+                  autoComplete="family-name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => mobileRef.current?.focus()}
+                  blurOnSubmit={false}
+                  containerStyle={styles.half}
+                />
+              </View>
+            )}
 
             <FormField
               ref={mobileRef}
@@ -109,24 +137,28 @@ export default function ProfileSetupScreen() {
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
               autoComplete="tel"
-              returnKeyType="next"
-              onSubmitEditing={() => emailRef.current?.focus()}
-              blurOnSubmit={false}
+              returnKeyType={hasSsoProfile ? "go" : "next"}
+              onSubmitEditing={
+                hasSsoProfile ? handleSubmit : () => emailRef.current?.focus()
+              }
+              blurOnSubmit={hasSsoProfile}
               placeholder="(555) 123-4567"
             />
 
-            <FormField
-              ref={emailRef}
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoComplete="email"
-              returnKeyType="go"
-              onSubmitEditing={handleSubmit}
-            />
+            {!hasSsoProfile && (
+              <FormField
+                ref={emailRef}
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                returnKeyType="go"
+                onSubmitEditing={handleSubmit}
+              />
+            )}
 
             {error ? (
               <View style={styles.errorBox}>

@@ -9,9 +9,10 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { router } from "expo-router";
 import Constants from "expo-constants";
 import { colors, typography, spacing } from "@/src/theme";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
@@ -37,6 +38,41 @@ export default function SettingsScreen() {
   const vehicles = useQuery(api.vehicles.list) ?? [];
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
   const deleteVehicle = useMutation(api.vehicles.remove);
+  const { user: clerkUser } = useUser();
+  const deleteAccountMutation = useMutation(api.users.deleteAccount);
+  const activeSession = useQuery(api.sessions.getActive);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = () => {
+    const hasActive = activeSession != null;
+    const body = hasActive
+      ? "This will cancel your active parking session and permanently delete your account and all data. This can't be undone."
+      : "This will permanently delete your account and all data. This can't be undone.";
+
+    Alert.alert("Delete your account?", body, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete my account",
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteAccountMutation();
+            await clerkUser?.delete();
+            router.replace("/(auth)/welcome");
+          } catch (err: unknown) {
+            setDeleting(false);
+            Alert.alert(
+              "Couldn't delete account",
+              err instanceof Error
+                ? err.message
+                : "Something went wrong. Try again.",
+            );
+          }
+        },
+      },
+    ]);
+  };
 
   const appVersion = Constants.expoConfig?.version ?? "2.0.0";
 
@@ -189,6 +225,16 @@ export default function SettingsScreen() {
             {signingOut ? "Signing out..." : "Sign Out"}
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+          style={styles.deleteButton}
+        >
+          <Text style={[typography.bodySm, { color: colors.secondary }]}>
+            {deleting ? "Deleting account..." : "Delete account"}
+          </Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -241,5 +287,9 @@ const styles = StyleSheet.create({
   signOutButton: {
     alignItems: "center",
     paddingVertical: spacing.lg,
+  },
+  deleteButton: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
   },
 });
