@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.parkdaddy.app",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Use Face ID to quickly sign in to parkDaddy",
@@ -28,7 +28,9 @@
             ]
           },
           {
-            "CFBundleURLSchemes": ["parkdaddy"]
+            "CFBundleURLSchemes": [
+              "parkdaddy"
+            ]
           }
         ]
       }
