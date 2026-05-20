@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/fontezbrooks/.claude/skills/learned)",
+      "Bash(cat)"
+    ]
+  }
+}
