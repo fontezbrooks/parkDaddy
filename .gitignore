@@ -43,3 +43,4 @@ yarn-error.*
 .env
 
 .env.local
+Design_splash_screen/
