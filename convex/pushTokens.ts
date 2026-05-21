@@ -21,12 +21,14 @@ export const save = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    const match = existing.find((t) => t.token === args.token);
-    if (match) return;
+    if (existing.some((t) => t.token === args.token)) return;
 
-    // Remove old tokens for this user, keep only latest
+    // Keep one token per platform: drop other tokens on this platform,
+    // preserve tokens on different platforms so iPhone + iPad can coexist.
     for (const old of existing) {
-      await ctx.db.delete(old._id);
+      if (old.platform === args.platform) {
+        await ctx.db.delete(old._id);
+      }
     }
 
     await ctx.db.insert("pushTokens", {

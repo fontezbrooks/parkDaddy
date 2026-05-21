@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
+import { usePushTokenRegistration } from "@/src/hooks/usePushTokenRegistration";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -25,15 +26,8 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
-export default function TabsLayout() {
-  const { isSignedIn, isLoaded } = useAuth();
-  const profile = useQuery(api.users.getProfile);
-
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect href="/(auth)/welcome" />;
-  // undefined = query still loading, null = no profile exists
-  if (profile === undefined) return null;
-  if (profile === null) return <Redirect href="/(auth)/profile-setup" />;
+function AuthenticatedTabs() {
+  usePushTokenRegistration();
 
   return (
     <Tabs
@@ -80,4 +74,17 @@ export default function TabsLayout() {
       />
     </Tabs>
   );
+}
+
+export default function TabsLayout() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const profile = useQuery(api.users.getProfile);
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect href="/(auth)/welcome" />;
+  // undefined = query still loading, null = no profile exists
+  if (profile === undefined) return null;
+  if (profile === null) return <Redirect href="/(auth)/profile-setup" />;
+
+  return <AuthenticatedTabs />;
 }
