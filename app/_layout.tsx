@@ -26,6 +26,8 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import * as Sentry from "@sentry/react-native";
 import { WhatsNewSheet } from "@/src/components/WhatsNewSheet";
+import { AnimatedSplash } from "@/src/components/splash/AnimatedSplash";
+import { useAppReady } from "@/src/hooks/useAppReady";
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
@@ -117,8 +119,15 @@ function useNotificationObserver() {
   }, []);
 }
 
-function RootLayoutInner() {
+function RootLayoutInner({
+  fontsLoaded,
+  fontError,
+}: {
+  fontsLoaded: boolean;
+  fontError: Error | null;
+}) {
   useNotificationObserver();
+  const appReady = useAppReady({ fontsLoaded, fontError });
 
   return (
     <>
@@ -144,6 +153,7 @@ function RootLayoutInner() {
         />
       </Stack>
       <WhatsNewSheet />
+      <AnimatedSplash appReady={appReady} />
     </>
   );
 }
@@ -163,18 +173,10 @@ export default Sentry.wrap(function RootLayout() {
     BricolageGrotesque_800ExtraBold,
   });
 
-  useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
-
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <RootLayoutInner />
+        <RootLayoutInner fontsLoaded={fontsLoaded} fontError={fontError} />
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

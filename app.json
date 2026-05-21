@@ -10,9 +10,9 @@
     "newArchEnabled": true,
     "scheme": "parkdaddy",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-dark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f9f9fb"
+      "backgroundColor": "#0f172a"
     },
     "ios": {
       "supportsTablet": false,
