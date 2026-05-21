@@ -19,6 +19,7 @@ export const sendExpiryWarning = internalMutation({
       title: "Parking expires in 15 min",
       body: `Extend parking for ${session.plate}?`,
       data: { route: "/extend-duration", sessionId: args.sessionId },
+      categoryIdentifier: "extend_24h",
     });
   },
 });
@@ -38,6 +39,38 @@ export const sendSessionEnded = internalMutation({
       body: `Parking session for ${session.plate} is complete.`,
       data: { route: "/(tabs)", sessionId: args.sessionId },
     });
+  },
+});
+
+// Extended Stay safety net: weekly "still parked?" check-in.
+// Always reschedules the next link even if the user has opted out of expiry
+// notifications, so the chain survives a pref change and continues to catch
+// forgotten long-term sessions.
+const WEEKLY_CHECK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const sendWeeklyCheckIn = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+    if (!["active", "renewing"].includes(session.status)) return;
+
+    const user = await ctx.db.get(session.userId);
+    if (user?.notifyOnExpiry) {
+      await ctx.scheduler.runAfter(0, internal.notifications.push, {
+        userId: session.userId,
+        title: "Still parked?",
+        body: `Confirm you're still using parkDaddy for ${session.plate}.`,
+        data: { route: "/(tabs)", sessionId: args.sessionId },
+      });
+    }
+
+    const nextId = await ctx.scheduler.runAt(
+      Date.now() + WEEKLY_CHECK_IN_MS,
+      internal.notifications.sendWeeklyCheckIn,
+      { sessionId: args.sessionId },
+    );
+    await ctx.db.patch(args.sessionId, { weeklyCheckInId: nextId });
   },
 });
 
@@ -85,6 +118,7 @@ export const push = internalAction({
     data: v.optional(
       v.object({ route: v.string(), sessionId: v.id("sessions") }),
     ),
+    categoryIdentifier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const tokens: { token: string }[] = await ctx.runQuery(
@@ -94,7 +128,8 @@ export const push = internalAction({
 
     if (tokens.length === 0) return;
 
-    // Use Expo Push API directly
+    // Use Expo Push API directly. categoryId triggers the registered
+    // notification category on iOS (action buttons); Android ignores it.
     const messages = tokens.map((t) => ({
       to: t.token,
       title: args.title,
@@ -102,6 +137,9 @@ export const push = internalAction({
       data: args.data,
       sound: "default" as const,
       priority: "high" as const,
+      ...(args.categoryIdentifier
+        ? { categoryId: args.categoryIdentifier }
+        : {}),
     }));
 
     try {

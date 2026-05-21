@@ -1,70 +1,35 @@
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
-  View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  StyleSheet,
-  ScrollView,
-  Pressable,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
-import { DurationPresetGrid } from "@/src/components/DurationPresetGrid";
-
-function getOvernightMinutes(): number {
-  const now = new Date();
-  const tomorrow8am = new Date(now);
-  tomorrow8am.setDate(tomorrow8am.getDate() + 1);
-  tomorrow8am.setHours(8, 0, 0, 0);
-  return Math.max(
-    120,
-    Math.round((tomorrow8am.getTime() - now.getTime()) / 60000),
-  );
-}
-
-const PRESETS = [
-  { label: "2h", minutes: 120 },
-  { label: "4h", minutes: 240 },
-  { label: "8h", minutes: 480, subtitle: "Full Day" },
-  { label: "12h", minutes: 720, subtitle: "Overnight" },
-  { label: "24h", minutes: 1440, subtitle: "Full Day+" },
-  { label: "Night", minutes: -1, subtitle: "Until 8 AM" },
-];
 
 export default function StartParkingScreen() {
-  const params = useLocalSearchParams<{
-    plate?: string;
-    durationMinutes?: string;
-  }>();
+  const params = useLocalSearchParams<{ plate?: string }>();
   const [plate, setPlate] = useState(params.plate ?? "");
   const [makeModel, setMakeModel] = useState("");
   const [vehicleColor, setVehicleColor] = useState("");
   const [showVehicleDetails, setShowVehicleDetails] = useState(false);
-  const [selectedMinutes, setSelectedMinutes] = useState<number | null>(
-    params.durationMinutes ? parseInt(params.durationMinutes, 10) : null,
-  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const profile = useQuery(api.users.getProfile);
   const createSession = useMutation(api.sessions.create);
 
-  const actualMinutes = useMemo(() => {
-    if (selectedMinutes === -1) return getOvernightMinutes();
-    return selectedMinutes;
-  }, [selectedMinutes]);
-
-  const estimatedEnd = useMemo(() => {
-    if (!actualMinutes) return null;
-    return new Date(Date.now() + actualMinutes * 60 * 1000);
-  }, [actualMinutes]);
-
-  const canProceed = plate.length >= 2 && selectedMinutes !== null;
+  const mode = profile?.mode ?? "daily";
+  const canProceed = plate.length >= 2;
 
   const handleParkThisCar = useCallback(async () => {
-    if (!actualMinutes) return;
     setLoading(true);
     setError("");
     try {
@@ -72,7 +37,6 @@ export default function StartParkingScreen() {
         plate,
         makeModel: makeModel || undefined,
         color: vehicleColor || undefined,
-        durationMinutes: actualMinutes,
       });
       router.dismissAll();
       router.replace("/(tabs)");
@@ -81,7 +45,7 @@ export default function StartParkingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [createSession, plate, makeModel, vehicleColor, actualMinutes]);
+  }, [createSession, plate, makeModel, vehicleColor]);
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -93,7 +57,7 @@ export default function StartParkingScreen() {
           Park a guest
         </Text>
 
-        <View style={styles.plateSection}>
+        <View>
           <Text style={[typography.labelSm, styles.fieldLabel]}>
             LICENSE PLATE
           </Text>
@@ -146,33 +110,20 @@ export default function StartParkingScreen() {
           </View>
         )}
 
-        <View style={styles.durationSection}>
-          <Text style={[typography.titleLg, { color: colors.onSurface }]}>
-            How long?
+        <View style={styles.summary}>
+          <Text style={[typography.displaySm, { color: colors.onSurface }]}>
+            {mode === "extended"
+              ? "Extended Stay — auto-renews until you stop it."
+              : "Covered for 24 hours."}
           </Text>
-          <DurationPresetGrid
-            presets={PRESETS}
-            selected={selectedMinutes}
-            onSelect={setSelectedMinutes}
-          />
+          <Text
+            style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
+          >
+            {mode === "extended"
+              ? "We'll check in once a week so you don't forget."
+              : "We'll auto-renew every 2 hours and ping you before the 24h mark to extend if you need more time."}
+          </Text>
         </View>
-
-        {estimatedEnd && (
-          <View style={styles.summary}>
-            <Text style={[typography.displaySm, { color: colors.onSurface }]}>
-              Covered until{" "}
-              {estimatedEnd.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-            <Text
-              style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
-            >
-              We auto-renew every 2 hours so your guest stays compliant.
-            </Text>
-          </View>
-        )}
 
         {error ? (
           <Text style={[typography.bodySm, { color: colors.secondary }]}>
@@ -205,14 +156,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.lg,
   },
-  sectionLabel: {
-    color: colors.onSurfaceVariant,
-  },
   fieldLabel: {
     color: colors.onSurfaceVariant,
     marginBottom: spacing.xs,
   },
-  plateSection: {},
   accordionTrigger: {
     paddingVertical: spacing.sm,
   },
@@ -242,9 +189,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: colors.onSurface,
-  },
-  durationSection: {
-    gap: spacing.md,
   },
   summary: {
     backgroundColor: colors.surfaceContainerLow,

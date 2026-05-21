@@ -42,6 +42,17 @@ function getStatusStyle(status: string) {
   }
 }
 
+// Extended Stay sessions store desiredEndTime as MAX_SAFE_INTEGER (sentinel
+// for indefinite). Treat their actual coverage as start → last successful
+// renewal so summary math stays finite.
+function sessionCoverageMs(s: SessionItem): number {
+  const isExtended = (s.mode ?? "daily") === "extended";
+  const end = isExtended
+    ? (s.lastParkEnd ?? s._creationTime)
+    : s.desiredEndTime;
+  return Math.max(0, end - s._creationTime);
+}
+
 function computeSummary(sessions: SessionItem[]) {
   const now = new Date();
   const thisMonth = sessions.filter((s) => {
@@ -51,10 +62,7 @@ function computeSummary(sessions: SessionItem[]) {
     );
   });
   const totalHours = Math.round(
-    sessions.reduce(
-      (acc, s) => acc + (s.desiredEndTime - s._creationTime) / 3600000,
-      0,
-    ),
+    sessions.reduce((acc, s) => acc + sessionCoverageMs(s) / 3600000, 0),
   );
   const failedCount = sessions.filter((s) => s.status === "failed").length;
   return {
@@ -73,8 +81,7 @@ function groupByPeriod(sessions: SessionItem[]) {
     (s._creationTime >= thirtyDaysAgo ? recent : older).push(s);
   }
   const sections = [];
-  if (recent.length > 0)
-    sections.push({ title: "Last 30 days", data: recent });
+  if (recent.length > 0) sections.push({ title: "Last 30 days", data: recent });
   if (older.length > 0) sections.push({ title: "Older", data: older });
   return sections;
 }
@@ -152,8 +159,7 @@ function useStaggerEntrance(deps: unknown[] = []) {
 }
 
 function EmptyState() {
-  const [kickerStyle, headingStyle, bodyStyle, ctaStyle] =
-    useStaggerEntrance();
+  const [kickerStyle, headingStyle, bodyStyle, ctaStyle] = useStaggerEntrance();
 
   return (
     <View style={styles.heroBlock}>
@@ -225,9 +231,7 @@ function SummaryHeader({
       >
         {headingText}
       </Animated.Text>
-      <Animated.Text
-        style={[typography.bodyMd, styles.summaryBody, bodyStyle]}
-      >
+      <Animated.Text style={[typography.bodyMd, styles.summaryBody, bodyStyle]}>
         {bodyText}
       </Animated.Text>
     </View>
@@ -237,16 +241,16 @@ function SummaryHeader({
 function SessionRow({ session }: { session: SessionItem }) {
   const status = getStatusStyle(session.status);
   const date = new Date(session._creationTime);
+  const isExtended = (session.mode ?? "daily") === "extended";
   const durationHours =
-    Math.round(
-      ((session.desiredEndTime - session._creationTime) / 3600000) * 10,
-    ) / 10;
+    Math.round((sessionCoverageMs(session) / 3600000) * 10) / 10;
+  const durationLabel = isExtended ? "Extended Stay" : `${durationHours}h`;
 
   return (
     <View
       style={styles.sessionRow}
       accessible
-      accessibilityLabel={`${session.plate}, ${status.label}, ${durationHours} hours on ${date.toLocaleDateString()}`}
+      accessibilityLabel={`${session.plate}, ${status.label}, ${durationLabel} on ${date.toLocaleDateString()}`}
     >
       <View>
         <Text style={[typography.headlineMd, styles.sessionPlate]}>
@@ -257,7 +261,7 @@ function SessionRow({ session }: { session: SessionItem }) {
             month: "short",
             day: "numeric",
           })}{" "}
-          · {durationHours}h
+          · {durationLabel}
         </Text>
       </View>
       <Text style={[typography.bodySm, { color: status.color }]}>

@@ -139,6 +139,13 @@ export const deleteAccount = mutation({
           // Already fired or cancelled
         }
       }
+      if (session.weeklyCheckInId) {
+        try {
+          await ctx.scheduler.cancel(session.weeklyCheckInId);
+        } catch {
+          // Already fired or cancelled
+        }
+      }
 
       const logs = await ctx.db
         .query("renewalLogs")

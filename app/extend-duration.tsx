@@ -1,57 +1,59 @@
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { useQuery, useMutation } from "convex/react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
-import { DurationPresetGrid } from "@/src/components/DurationPresetGrid";
 import { StatusPill } from "@/src/components/StatusPill";
 
-const PRESETS = [
-  { label: "2h", minutes: 120, subtitle: "Standard" },
-  { label: "4h", minutes: 240, subtitle: "Recommended" },
-  { label: "8h", minutes: 480, subtitle: "Full Day" },
-  { label: "12h", minutes: 720, subtitle: "Overnight" },
-  { label: "24h", minutes: 1440, subtitle: "Full Day+" },
-];
+const DAILY_EXTENSION_MS = 24 * 60 * 60 * 1000;
 
 export default function ExtendDurationScreen() {
+  const params = useLocalSearchParams<{ autoExtend?: string }>();
   const session = useQuery(api.sessions.getActive);
   const extendSession = useMutation(api.sessions.extend);
-  const [selectedMinutes, setSelectedMinutes] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoExtendFiredRef = useRef(false);
 
   const newEndTime = useMemo(() => {
-    if (!session || !selectedMinutes) return null;
-    return new Date(session.desiredEndTime + selectedMinutes * 60 * 1000);
-  }, [session, selectedMinutes]);
+    if (!session) return null;
+    return new Date(session.desiredEndTime + DAILY_EXTENSION_MS);
+  }, [session]);
 
   const handleExtend = useCallback(async () => {
-    if (!session || !selectedMinutes) return;
+    if (!session) return;
     setLoading(true);
     setError("");
-
     try {
-      await extendSession({
-        sessionId: session._id,
-        additionalMinutes: selectedMinutes,
-      });
+      await extendSession({ sessionId: session._id });
       router.back();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to extend");
     } finally {
       setLoading(false);
     }
-  }, [session, selectedMinutes, extendSession]);
+  }, [session, extendSession]);
+
+  // Notification-action path: if /extend-duration?autoExtend=1, fire the
+  // extend mutation as soon as we have a session and route home on success.
+  // Guarded with a ref so re-renders don't trigger a second extend.
+  useEffect(() => {
+    if (autoExtendFiredRef.current) return;
+    if (params.autoExtend !== "1") return;
+    if (!session) return;
+    if ((session.mode ?? "daily") === "extended") return;
+    autoExtendFiredRef.current = true;
+    handleExtend();
+  }, [params.autoExtend, session, handleExtend]);
 
   if (session === undefined) {
     return (
@@ -81,6 +83,30 @@ export default function ExtendDurationScreen() {
     );
   }
 
+  // Extended Stay sessions auto-renew indefinitely — nothing to extend.
+  // Bounce back to home rather than show a broken-looking extend screen.
+  if ((session.mode ?? "daily") === "extended") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyState}>
+          <Text style={[typography.headlineMd, { color: colors.primary }]}>
+            Already auto-renewing
+          </Text>
+          <Text
+            style={[
+              typography.bodyMd,
+              { color: colors.onSurfaceVariant, textAlign: "center" },
+            ]}
+          >
+            Extended Stay keeps your guest parked until you turn it off — no
+            extension needed.
+          </Text>
+          <GradientButton title="Back to home" onPress={() => router.back()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScrollView
@@ -103,26 +129,16 @@ export default function ExtendDurationScreen() {
           </Text>
         </View>
 
-        <View style={styles.durationSection}>
-          <Text style={[typography.titleLg, { color: colors.onSurface }]}>
-            Add more time
-          </Text>
-          <DurationPresetGrid
-            presets={PRESETS}
-            selected={selectedMinutes}
-            onSelect={setSelectedMinutes}
-          />
-        </View>
-
         {newEndTime && (
           <View style={styles.impact}>
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              COVERED UNTIL
+              EXTEND COVERAGE UNTIL
             </Text>
             <Text style={[typography.displaySm, { color: colors.onSurface }]}>
-              {newEndTime.toLocaleTimeString([], {
+              {newEndTime.toLocaleString([], {
+                weekday: "short",
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -130,7 +146,7 @@ export default function ExtendDurationScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              We keep auto-renewing for you.
+              We'll auto-renew for another 24 hours.
             </Text>
           </View>
         )}
@@ -144,9 +160,9 @@ export default function ExtendDurationScreen() {
 
       <View style={styles.footer}>
         <GradientButton
-          title={loading ? "Extending..." : "Confirm Extension"}
+          title={loading ? "Extending..." : "Extend 24 hours"}
           onPress={handleExtend}
-          disabled={loading || !selectedMinutes}
+          disabled={loading}
         />
       </View>
     </SafeAreaView>
@@ -177,15 +193,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  durationSection: {
-    gap: spacing.md,
-  },
   impact: {
     backgroundColor: colors.surfaceContainerLow,
     borderRadius: radius.lg,
     padding: spacing.lg,
     alignItems: "center",
     gap: spacing.xs,
+  },
+  emptyState: {
+    flex: 1,
+    paddingHorizontal: spacing["2xl"],
+    paddingVertical: spacing["3xl"],
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.lg,
   },
   footer: {
     paddingHorizontal: spacing.lg,

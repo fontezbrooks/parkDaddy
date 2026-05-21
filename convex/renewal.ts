@@ -39,8 +39,15 @@ export const tick = internalMutation({
       return;
     }
 
-    // If already past desired end and we have coverage, complete
-    if (session.lastParkEnd && session.lastParkEnd >= session.desiredEndTime) {
+    // If already past desired end and we have coverage, complete.
+    // Extended Stay sessions never hit this branch — desiredEndTime is set
+    // to MAX_SAFE_INTEGER at create time and the chain runs until cancel.
+    const mode = session.mode ?? "daily";
+    if (
+      mode === "daily" &&
+      session.lastParkEnd &&
+      session.lastParkEnd >= session.desiredEndTime
+    ) {
       await cancelScheduled(ctx, session.expiryWarningId);
       await ctx.db.patch(args.sessionId, {
         status: "completed",
@@ -95,8 +102,11 @@ export const saveResult = internalMutation({
       parkEnd: args.parkEnd,
     });
 
-    // Check if parking now covers desired end time
-    if (args.parkEnd >= session.desiredEndTime) {
+    // Check if parking now covers desired end time. Extended Stay sessions
+    // skip this — desiredEndTime is MAX_SAFE_INTEGER, so the comparison is
+    // never true in practice, but the explicit mode gate documents intent.
+    const mode = session.mode ?? "daily";
+    if (mode === "daily" && args.parkEnd >= session.desiredEndTime) {
       await cancelScheduled(ctx, session.expiryWarningId);
       await ctx.db.patch(args.sessionId, {
         status: "completed",
@@ -132,9 +142,11 @@ export const saveResult = internalMutation({
       { sessionId: args.sessionId },
     );
 
-    // Schedule expiry warning if not already done and within range
+    // Schedule expiry warning if not already done and within range.
+    // Extended Stay mode never schedules one — the weekly check-in chain
+    // (set up in sessions.create) is the safety net instead.
     let expiryWarningId = session.expiryWarningId;
-    if (!expiryWarningId) {
+    if (mode === "daily" && !expiryWarningId) {
       const warningTime = session.desiredEndTime - EXPIRY_WARNING_MS;
       if (warningTime > Date.now()) {
         expiryWarningId = await ctx.scheduler.runAt(

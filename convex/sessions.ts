@@ -137,12 +137,15 @@ export const getDetail = query({
   },
 });
 
+const DAILY_DURATION_MS = 24 * 60 * 60 * 1000;
+const EXPIRY_WARNING_MS = 15 * 60 * 1000;
+const WEEKLY_CHECK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const create = mutation({
   args: {
     plate: v.string(),
     makeModel: v.optional(v.string()),
     color: v.optional(v.string()),
-    durationMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -157,10 +160,6 @@ export const create = mutation({
     const plateRegex = /^[A-Z0-9]{1,8}[-\s]?[A-Z0-9]{0,5}$/;
     if (!plateRegex.test(args.plate.toUpperCase().trim())) {
       throw new Error("Invalid license plate format");
-    }
-
-    if (args.durationMinutes < 1 || args.durationMinutes > 1440) {
-      throw new Error("Duration must be between 1 and 1440 minutes");
     }
 
     // Check for existing active session
@@ -199,8 +198,12 @@ export const create = mutation({
       });
     }
 
+    const mode = user.mode ?? "daily";
     const now = Date.now();
-    const desiredEndTime = now + args.durationMinutes * 60 * 1000;
+    // Extended Stay uses MAX_SAFE_INTEGER so the renewal cron's
+    // `lastParkEnd >= desiredEndTime` short-circuit never fires.
+    const desiredEndTime =
+      mode === "extended" ? Number.MAX_SAFE_INTEGER : now + DAILY_DURATION_MS;
 
     const sessionId = await ctx.db.insert("sessions", {
       userId: user._id,
@@ -213,6 +216,7 @@ export const create = mutation({
       desiredEndTime,
       status: "active",
       retryCount: 0,
+      mode,
     });
 
     // Log initial action
@@ -224,6 +228,23 @@ export const create = mutation({
     // Trigger first renewal immediately
     await ctx.scheduler.runAfter(0, internal.renewal.tick, { sessionId });
 
+    if (mode === "daily") {
+      const warningTime = desiredEndTime - EXPIRY_WARNING_MS;
+      const expiryWarningId = await ctx.scheduler.runAt(
+        warningTime,
+        internal.notifications.sendExpiryWarning,
+        { sessionId },
+      );
+      await ctx.db.patch(sessionId, { expiryWarningId });
+    } else {
+      const weeklyCheckInId = await ctx.scheduler.runAt(
+        now + WEEKLY_CHECK_IN_MS,
+        internal.notifications.sendWeeklyCheckIn,
+        { sessionId },
+      );
+      await ctx.db.patch(sessionId, { weeklyCheckInId });
+    }
+
     return sessionId;
   },
 });
@@ -231,7 +252,6 @@ export const create = mutation({
 export const extend = mutation({
   args: {
     sessionId: v.id("sessions"),
-    additionalMinutes: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -248,16 +268,16 @@ export const extend = mutation({
       throw new Error("Not authorized");
     }
 
-    if (!["active", "renewing"].includes(session.status)) {
+    if (!["active", "renewing", "failed"].includes(session.status)) {
       throw new Error("Session is not active");
     }
 
-    if (args.additionalMinutes < 1 || args.additionalMinutes > 1440) {
-      throw new Error("Extension must be between 1 and 1440 minutes");
+    // Extended Stay sessions don't expose Extend — no boundary to push.
+    if ((session.mode ?? "daily") === "extended") {
+      throw new Error("Extended Stay sessions auto-renew; nothing to extend.");
     }
 
-    const newDesiredEndTime =
-      session.desiredEndTime + args.additionalMinutes * 60 * 1000;
+    const newDesiredEndTime = session.desiredEndTime + DAILY_DURATION_MS;
 
     // Cancel existing expiry warning if scheduled
     if (session.expiryWarningId) {
@@ -269,7 +289,7 @@ export const extend = mutation({
     }
 
     // Schedule new expiry warning 15 min before new end
-    const warningTime = newDesiredEndTime - 15 * 60 * 1000;
+    const warningTime = newDesiredEndTime - EXPIRY_WARNING_MS;
     let expiryWarningId;
     if (warningTime > Date.now()) {
       expiryWarningId = await ctx.scheduler.runAt(
@@ -279,9 +299,21 @@ export const extend = mutation({
       );
     }
 
+    // Reset retryCount so an extend-from-failed gets a fresh retry chain
+    // rather than instantly re-failing once and giving up.
     await ctx.db.patch(args.sessionId, {
       desiredEndTime: newDesiredEndTime,
       expiryWarningId,
+      retryCount: 0,
+      lastError: undefined,
+    });
+
+    // Trigger an immediate parkeaz top-up matching the initial-register path.
+    // Per FR-5: tapping Extend should refresh coverage now, not wait for the
+    // next scheduled tick. renewal.tick handles the active/renewing/failed
+    // status transitions and the actual parkeaz call.
+    await ctx.scheduler.runAfter(0, internal.renewal.tick, {
+      sessionId: args.sessionId,
     });
   },
 });
@@ -321,10 +353,20 @@ export const cancel = mutation({
       }
     }
 
+    // Cancel weekly check-in (Extended Stay sessions only)
+    if (session.weeklyCheckInId) {
+      try {
+        await ctx.scheduler.cancel(session.weeklyCheckInId);
+      } catch {
+        // Already fired
+      }
+    }
+
     await ctx.db.patch(args.sessionId, {
       status: "cancelled",
       scheduledFunctionId: undefined,
       expiryWarningId: undefined,
+      weeklyCheckInId: undefined,
     });
 
     await ctx.db.insert("renewalLogs", {

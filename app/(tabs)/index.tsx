@@ -24,9 +24,9 @@ import Animated, {
 import * as Sentry from "@sentry/react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { CountdownTimer } from "@/src/components/CountdownTimer";
+import { ModeToggle, type Mode } from "@/src/components/ModeToggle";
 import { mapConvexError } from "@/src/utils/convexErrors";
 
-const DEFAULT_DURATION_MINUTES = 240; // 4 hours
 const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
 
 type ActiveSession = NonNullable<
@@ -77,10 +77,23 @@ function LoadingState() {
 function ActiveState({ session }: { session: ActiveSession }) {
   const [retrying, setRetrying] = useState(false);
 
-  const endTimeFormatted = new Date(session.desiredEndTime).toLocaleTimeString(
-    [],
-    { hour: "2-digit", minute: "2-digit" },
-  );
+  const isExtended = (session.mode ?? "daily") === "extended";
+
+  // Daily sessions display the planned cap. Extended Stay's desiredEndTime
+  // is a sentinel (MAX_SAFE_INTEGER) that JS can't render as a Date, so we
+  // never feed it to toLocaleTimeString.
+  const endTimeFormatted = isExtended
+    ? null
+    : new Date(session.desiredEndTime).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+  const startedFormatted = new Date(session._creationTime).toLocaleString([], {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   const kicker = useSharedValue(0);
   const label = useSharedValue(0);
@@ -225,20 +238,37 @@ function ActiveState({ session }: { session: ActiveSession }) {
   return (
     <View style={styles.heroBlock}>
       <Animated.Text style={[typography.labelSm, styles.kicker, kickerStyle]}>
-        {isRenewing ? "Renewing" : "Covered until"}
+        {isRenewing
+          ? "Renewing"
+          : isExtended
+            ? "Extended Stay"
+            : "Covered until"}
       </Animated.Text>
       <Animated.Text style={[typography.displayMd, styles.endTime, labelStyle]}>
-        {endTimeFormatted}
+        {isExtended ? "Auto-renewing" : endTimeFormatted}
       </Animated.Text>
 
-      <Animated.View style={[styles.countdownBlock, countdownStyle]}>
-        <CountdownTimer
-          targetTime={session.desiredEndTime}
-          variant="large"
-          showSeconds={false}
-          style={styles.countdownNumber}
-        />
-      </Animated.View>
+      {isExtended ? (
+        <Animated.View style={[styles.extendedStat, countdownStyle]}>
+          <Text
+            style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
+          >
+            STARTED
+          </Text>
+          <Text style={[typography.displaySm, { color: colors.primary }]}>
+            {startedFormatted}
+          </Text>
+        </Animated.View>
+      ) : (
+        <Animated.View style={[styles.countdownBlock, countdownStyle]}>
+          <CountdownTimer
+            targetTime={session.desiredEndTime}
+            variant="large"
+            showSeconds={false}
+            style={styles.countdownNumber}
+          />
+        </Animated.View>
+      )}
 
       <Animated.View style={[styles.plateBlock, plateStyle]}>
         <View style={styles.plateUnderlineWrap}>
@@ -248,34 +278,51 @@ function ActiveState({ session }: { session: ActiveSession }) {
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          Ponce Springs
+          {isExtended ? "Auto-renews until you stop" : "Ponce Springs"}
         </Text>
       </Animated.View>
 
       <Animated.View style={[styles.actions, actionsStyle]}>
-        <Pressable
-          onPress={() => router.push("/extend-duration")}
-          style={({ pressed }) => [
-            styles.primaryCta,
-            pressed && styles.pressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Add time"
-        >
-          <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
-            Add time
-          </Text>
-          <Text style={styles.primaryCtaArrow}></Text>
-        </Pressable>
+        {!isExtended ? (
+          <Pressable
+            onPress={() => router.push("/extend-duration")}
+            style={({ pressed }) => [
+              styles.primaryCta,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Add time"
+          >
+            <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
+              Add time
+            </Text>
+            <Text style={styles.primaryCtaArrow}></Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           onPress={() => router.push("/confirm-stop")}
           hitSlop={12}
-          style={styles.secondaryCta}
+          style={({ pressed }) =>
+            isExtended
+              ? [
+                  styles.primaryCta,
+                  styles.endSessionExtended,
+                  pressed && styles.pressed,
+                ]
+              : styles.secondaryCta
+          }
           accessibilityRole="button"
           accessibilityLabel="End session"
         >
-          <Text style={[typography.bodyMd, styles.secondaryCtaLabel]}>
+          <Text
+            style={[
+              isExtended ? typography.titleLg : typography.bodyMd,
+              isExtended
+                ? styles.endSessionExtendedLabel
+                : styles.secondaryCtaLabel,
+            ]}
+          >
             End session
           </Text>
         </Pressable>
@@ -326,11 +373,13 @@ function FirstTimerState() {
 
 function SingleVehicleState({
   plate,
+  mode,
   lastUsedAt,
   onPark,
   loading,
 }: {
   plate: string;
+  mode: Mode;
   lastUsedAt: number | null;
   onPark: (plate: string) => void;
   loading: boolean;
@@ -353,7 +402,9 @@ function SingleVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          4 hours · auto-renewing
+          {mode === "extended"
+            ? "Auto-renews until you stop"
+            : "24 hours · auto-renewing"}
         </Text>
       </View>
 
@@ -393,6 +444,7 @@ function SingleVehicleState({
 function MultiVehicleState({
   primary,
   others,
+  mode,
   lastParkedPlate,
   lastParkedAt,
   onPark,
@@ -400,6 +452,7 @@ function MultiVehicleState({
 }: {
   primary: { _id: string; plate: string };
   others: { _id: string; plate: string }[];
+  mode: Mode;
   lastParkedPlate: string | null;
   lastParkedAt: number | null;
   onPark: (plate: string) => void;
@@ -424,7 +477,9 @@ function MultiVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          4 hours · auto-renewing
+          {mode === "extended"
+            ? "Auto-renews until you stop"
+            : "24 hours · auto-renewing"}
         </Text>
       </View>
 
@@ -501,19 +556,20 @@ function InactiveState({
   lastParkedAt: number | null;
 }) {
   const vehicles = useQuery(api.vehicles.list) ?? [];
+  const profile = useQuery(api.users.getProfile);
   const createSession = useMutation(api.sessions.create);
+  const updateMode = useMutation(api.users.updateMode);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  const mode: Mode = profile?.mode ?? "daily";
 
   const handlePark = useCallback(
     async (plate: string) => {
       setLoadingPlate(plate);
       setError("");
       try {
-        await createSession({
-          plate,
-          durationMinutes: DEFAULT_DURATION_MINUTES,
-        });
+        await createSession({ plate });
       } catch (err) {
         const friendly = mapConvexError(err);
         setError(friendly);
@@ -527,8 +583,33 @@ function InactiveState({
     [createSession],
   );
 
+  const handleModeChange = useCallback(
+    async (next: Mode) => {
+      if (next === mode) return;
+      try {
+        await updateMode({ mode: next });
+      } catch (err) {
+        Sentry.captureException(
+          err instanceof Error ? err : new Error("Mode change failed"),
+        );
+      }
+    },
+    [mode, updateMode],
+  );
+
+  const modeToggle = (
+    <View style={styles.modeToggleWrap}>
+      <ModeToggle mode={mode} onChange={handleModeChange} />
+    </View>
+  );
+
   if (vehicles.length === 0) {
-    return <FirstTimerState />;
+    return (
+      <>
+        {modeToggle}
+        <FirstTimerState />
+      </>
+    );
   }
 
   // Sort so last-parked vehicle is primary (fallback to lastUsedAt)
@@ -544,8 +625,10 @@ function InactiveState({
     const v = sorted[0];
     return (
       <>
+        {modeToggle}
         <SingleVehicleState
           plate={v.plate}
+          mode={mode}
           lastUsedAt={
             lastParkedPlate === v.plate ? lastParkedAt : (v.lastUsedAt ?? null)
           }
@@ -560,9 +643,11 @@ function InactiveState({
   const [primary, ...rest] = sorted;
   return (
     <>
+      {modeToggle}
       <MultiVehicleState
         primary={{ _id: primary._id, plate: primary.plate }}
         others={rest.slice(0, 2).map((r) => ({ _id: r._id, plate: r.plate }))}
+        mode={mode}
         lastParkedPlate={lastParkedPlate}
         lastParkedAt={lastParkedAt}
         onPark={handlePark}
@@ -781,5 +866,20 @@ const styles = StyleSheet.create({
   },
   inlineErrorText: {
     color: colors.error,
+  },
+  modeToggleWrap: {
+    paddingHorizontal: spacing["2xl"],
+    paddingTop: spacing.lg,
+  },
+  extendedStat: {
+    marginBottom: spacing["2xl"],
+    gap: spacing.xs,
+  },
+  endSessionExtended: {
+    backgroundColor: colors.surfaceContainerHigh,
+    justifyContent: "center",
+  },
+  endSessionExtendedLabel: {
+    color: colors.onSurface,
   },
 });
