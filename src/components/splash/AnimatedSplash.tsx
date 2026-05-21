@@ -56,11 +56,14 @@ export function AnimatedSplash({ appReady }: Props) {
   }, []);
 
   useEffect(() => {
+    if (stage !== "stageA" && stage !== "stageA-hold") return;
+    const elapsed = Date.now() - mountedAtRef.current;
+    const remaining = Math.max(0, HARD_TIMEOUT_MS - elapsed);
     const timer = setTimeout(() => {
       Sentry.captureMessage("splash_appReady_timeout", "warning");
-    }, HARD_TIMEOUT_MS);
+    }, remaining);
     return () => clearTimeout(timer);
-  }, []);
+  }, [stage]);
 
   useEffect(() => {
     if (stage !== "stageA") return;
@@ -95,7 +98,10 @@ export function AnimatedSplash({ appReady }: Props) {
 
   useEffect(() => {
     if (stage !== "stageB") return;
-    const timer = setTimeout(() => setStage("stageB-hold"), STAGE_B_DURATION_MS);
+    const timer = setTimeout(
+      () => setStage("stageB-hold"),
+      STAGE_B_DURATION_MS,
+    );
     return () => clearTimeout(timer);
   }, [stage]);
 
