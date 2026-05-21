@@ -11,6 +11,9 @@ export const sendExpiryWarning = internalMutation({
     if (!session) return;
     if (!["active", "renewing"].includes(session.status)) return;
 
+    const user = await ctx.db.get(session.userId);
+    if (!user?.notifyOnExpiry) return;
+
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
       title: "Parking expires in 15 min",
@@ -26,6 +29,9 @@ export const sendSessionEnded = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return;
 
+    const user = await ctx.db.get(session.userId);
+    if (!user?.notifyOnSuccess) return;
+
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
       title: "Guest parking has ended",
@@ -35,6 +41,8 @@ export const sendSessionEnded = internalMutation({
   },
 });
 
+// Renewal/urgent failures bypass user notification prefs: missing one means
+// the guest's car gets booted ($250+). Treat as safety-critical, not opt-in.
 export const sendRenewalFailure = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {

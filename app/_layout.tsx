@@ -26,11 +26,12 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
 import * as Sentry from "@sentry/react-native";
 
-Sentry.init({
-  dsn: "https://c5e178a1ee7e58a13119ca9eb07ed0fe@o4510285264715776.ingest.us.sentry.io/4510285279985664",
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+Sentry.init({
+  dsn: sentryDsn,
+  enabled: !!sentryDsn,
+
   sendDefaultPii: true,
 
   // Enable Logs

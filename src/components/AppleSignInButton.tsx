@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { useSSO } from "@clerk/clerk-expo";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
@@ -59,9 +58,6 @@ export function AppleSignInButton({ label = "Continue with Apple" }: Props) {
     </Pressable>
   );
 }
-
-// Gate on native availability so non-iOS bundles still typecheck
-export const appleAvailableAsync = AppleAuthentication.isAvailableAsync;
 
 const styles = StyleSheet.create({
   button: {

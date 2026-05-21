@@ -15,6 +15,8 @@ const PROPERTY_NAME = "Ponce Springs Lofts";
 const PRODUCT = "3615";
 const PRODUCT_TIME = "120";
 
+const DEBUG = !!process.env.PARKEAZ_DEBUG;
+
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
@@ -276,10 +278,13 @@ export const renewalAction = internalAction({
           ? decodeURIComponent(errorMatch[1])
           : "Unknown charge error";
         console.error(`[ParkEaz] Charge error redirect:`, errorMsg);
-        console.error(
-          `[ParkEaz] Charge page body (first 1000):`,
-          chargeHtml.slice(0, 1000),
-        );
+        if (DEBUG) {
+          // Body contains reflected form data (email, mobile, plate, names)
+          console.error(
+            `[ParkEaz] Charge page body (first 1000):`,
+            chargeHtml.slice(0, 1000),
+          );
+        }
         throw new Error(`ParkEaz charge error: ${errorMsg}`);
       }
 
@@ -296,10 +301,12 @@ export const renewalAction = internalAction({
       }
 
       console.log(`[ParkEaz] Step 2 extracted parkId: ${parkId}`);
-      console.log(
-        `[ParkEaz] Step 2 charge response (first 1000):`,
-        chargeHtml.slice(0, 1000),
-      );
+      if (DEBUG) {
+        console.log(
+          `[ParkEaz] Step 2 charge response (first 1000):`,
+          chargeHtml.slice(0, 1000),
+        );
+      }
 
       // Extract server-confirmed parkend
       let confirmedParkEnd = parkEnd.getTime();
@@ -335,10 +342,12 @@ export const renewalAction = internalAction({
           finalUrl: successRes.url,
         },
       );
-      console.log(
-        `[ParkEaz] Step 3 response (first 1000):`,
-        successHtml.slice(0, 1000),
-      );
+      if (DEBUG) {
+        console.log(
+          `[ParkEaz] Step 3 response (first 1000):`,
+          successHtml.slice(0, 1000),
+        );
+      }
 
       // Extract confirmed end time from success page
       const endTimeMatch = successHtml.match(
