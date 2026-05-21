@@ -10,6 +10,7 @@ export default defineSchema({
     mobile: v.string(),
     notifyOnExpiry: v.boolean(),
     notifyOnSuccess: v.boolean(),
+    mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
   }).index("by_clerk_id", ["clerkId"]),
 
   vehicles: defineTable({
@@ -39,6 +40,8 @@ export default defineSchema({
     renewingAt: v.optional(v.number()),
     retryCount: v.number(),
     lastError: v.optional(v.string()),
+    mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
+    weeklyCheckInId: v.optional(v.id("_scheduled_functions")),
   })
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])

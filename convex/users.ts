@@ -74,6 +74,38 @@ export const updateNotificationPrefs = mutation({
   },
 });
 
+export const updateMode = mutation({
+  args: {
+    mode: v.union(v.literal("daily"), v.literal("extended")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("Profile not found");
+
+    for (const status of ["active", "renewing", "failed"]) {
+      const existing = await ctx.db
+        .query("sessions")
+        .withIndex("by_user_status", (q) =>
+          q.eq("userId", user._id).eq("status", status),
+        )
+        .first();
+      if (existing) {
+        throw new Error(
+          "Stop your current parking session before changing modes.",
+        );
+      }
+    }
+
+    await ctx.db.patch(user._id, { mode: args.mode });
+  },
+});
+
 export const deleteAccount = mutation({
   args: {},
   handler: async (ctx) => {
