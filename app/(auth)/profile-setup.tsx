@@ -96,8 +96,8 @@ export default function ProfileSetupScreen() {
           </Text>
           <Text style={[typography.bodyLg, styles.subtitle]}>
             {hasSsoProfile
-              ? "ParkEaz needs this to register your guests. Never shared."
-              : "We use these to register vehicles for your guests with ParkEaz. Never shared."}
+              ? "ParkEaz needs this to register your car. Never shared."
+              : "We use these to register vehicles  with ParkEaz. Never shared."}
           </Text>
 
           <View style={styles.form}>

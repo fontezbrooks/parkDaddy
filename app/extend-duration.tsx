@@ -98,7 +98,7 @@ export default function ExtendDurationScreen() {
               { color: colors.onSurfaceVariant, textAlign: "center" },
             ]}
           >
-            Extended Stay keeps your guest parked until you turn it off — no
+            Extended Stay keeps your car parked until you turn it off — no
             extension needed.
           </Text>
           <GradientButton title="Back to home" onPress={() => router.back()} />

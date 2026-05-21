@@ -25,7 +25,7 @@ const BULLETS: { title: string; body: string }[] = [
   },
   {
     title: "Extended Stay mode",
-    body: "Hosting a guest for a week or more? Switch to Extended Stay and we'll auto-renew until you turn it off. We check in weekly so you don't forget.",
+    body: "Parking for a week or more? Switch to Extended Stay and we'll auto-renew until you turn it off. We check in weekly so you don't forget.",
   },
   {
     title: "Reliable notifications",

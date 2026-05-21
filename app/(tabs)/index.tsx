@@ -346,10 +346,10 @@ function FirstTimerState() {
     <View style={styles.heroBlock}>
       <Text style={[typography.labelSm, styles.kicker]}>New here</Text>
       <Text style={[typography.displayMd, styles.firstTimerTitle]}>
-        Guest on the way?
+        Need to Park?
       </Text>
       <Text style={[typography.bodyLg, styles.firstTimerBody]}>
-        Add their plate and we'll keep them parked. Auto-renew, auto-everything.
+        Add your plate and we'll keep you parked. Auto-renew, auto-everything.
       </Text>
       <View style={styles.actions}>
         <Pressable
@@ -359,10 +359,10 @@ function FirstTimerState() {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel="Park a guest"
+          accessibilityLabel="Park your car"
         >
           <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
-            Park a guest
+            Park your car
           </Text>
           <Text style={styles.primaryCtaArrow}></Text>
         </Pressable>
