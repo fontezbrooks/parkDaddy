@@ -344,9 +344,7 @@ function SingleVehicleState({
       ) : (
         <Text style={[typography.labelSm, styles.kicker]}>Ready</Text>
       )}
-      <Text style={[typography.displayMd, styles.endTime]}>
-        Park your guest.
-      </Text>
+      <Text style={[typography.displayMd, styles.endTime]}>Park your car.</Text>
       <View style={styles.plateBlock}>
         <View style={styles.plateUnderlineWrap}>
           <Text style={[typography.displaySm, styles.singlePlate]}>
@@ -416,9 +414,7 @@ function MultiVehicleState({
   return (
     <View style={styles.heroBlock}>
       <Text style={[typography.labelSm, styles.kicker]}>{kickerText}</Text>
-      <Text style={[typography.displayMd, styles.endTime]}>
-        Park your guest.
-      </Text>
+      <Text style={[typography.displayMd, styles.endTime]}>Park your car.</Text>
 
       <View style={styles.plateBlock}>
         <View style={styles.plateUnderlineWrap}>
