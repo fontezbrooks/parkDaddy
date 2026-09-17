@@ -35,8 +35,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f9f9fb"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#001840"
       },
       "package": "com.parkdaddy.app",
       "versionCode": 2
