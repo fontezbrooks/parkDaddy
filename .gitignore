@@ -44,3 +44,5 @@ yarn-error.*
 
 .env.local
 Design_splash_screen/
+# Serena MCP local project state
+/.serena
