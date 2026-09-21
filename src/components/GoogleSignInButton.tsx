@@ -5,6 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { colors, typography, spacing, radius } from "@/src/theme";
+import { markSsoFlowStarted } from "@/src/utils/ssoFlowState";
 import * as Sentry from "@sentry/react-native";
 WebBrowser.maybeCompleteAuthSession();
 
@@ -18,6 +19,7 @@ export function GoogleSignInButton({ label = "Continue with Google" }: Props) {
 
   const handlePress = useCallback(async () => {
     setLoading(true);
+    markSsoFlowStarted();
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: "oauth_google",
