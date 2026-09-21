@@ -53,7 +53,7 @@ A full-bleed square as the foreground gets its corners cut by every mask and its
 | Path | Trigger | What the route does | Who completes sign-in |
 |------|---------|---------------------|-----------------------|
 | Warm (process alive) | Expo Router navigates to `/oauth_callback` on the deep link while `startSSOFlow` is still resolving | Shows neutral screen; when `isSignedIn` flips true, replaces to `/(tabs)` | `GoogleSignInButton` (`setActive` + its own `router.replace`) |
-| Cold (process dead, this device) | Launch intent URL = `parkdaddy://oauth_callback?…`; route is the initial route under the splash overlay | Same as warm: waits for Clerk to load and `isSignedIn`, then replaces to `/(tabs)` | Clerk client reload from SecureStore on boot |
+| Cold (process dead, this device) | Launch intent URL = `parkdaddy://oauth_callback?rotating_token_nonce=…`; route is the initial route under the splash overlay | Detects an orphaned callback (no SSO flow was started in this JS runtime), performs the same exchange `useSSO` would have, then replaces to `/(tabs)` when `isSignedIn` flips | **This route** (revised 2026-09-20 after PR #4 review, see §6 R1) |
 | Cancelled / failed | Custom Tab dismissed; on Android the route may or may not have been reached | If Clerk loads and `isSignedIn` stays false past a short grace period, replaces to `/(auth)/welcome` | nobody; user is back where they started |
 | iOS | never reached (`ASWebAuthenticationSession` swallows the redirect) | n/a | unchanged |
 
@@ -74,7 +74,22 @@ effect [isLoaded, isSignedIn]:
 - Grace period exists only for the cancel/fail case. On success `isSignedIn` flips well inside it.
 - Double `router.replace("/(tabs)")` on the warm path (button + route) is idempotent: same target, replace semantics. Verified acceptable; no guard needed.
 - The effect must clear its timer in cleanup (see `~/.claude/skills/learned/empty-deps-useeffect-cleanup-trap.md`; this effect has dependencies, so cleanup runs on each change too, which is what we want).
-- Query params (`rotating_token_nonce`, `created_session_id`) are deliberately **not** read. See §6 risk R1 for the deferred alternative.
+- ~~Query params are deliberately not read.~~ **Revised 2026-09-20:** the route now completes the cold-start exchange. Added before the grace timer starts:
+  ```
+  orphaned = !hasStartedSsoFlow()          // src/utils/ssoFlowState.ts, one-way latch in JS memory
+  nonce = routeNonce ?? nonce parsed from Linking.getInitialURL()   // fallback, strict hostname/path match
+  if orphaned && nonce && not already claimed:
+    claim nonce (module-level Set, single-use guard)
+    signIn.reload({ rotatingTokenNonce: nonce })
+    if signIn.firstFactorVerification.status === "transferable": signUp.create({ transfer: true })
+    setActive({ session: signUp.createdSessionId ?? signIn.createdSessionId })
+  then start grace timer (errors go to Sentry, timer still starts)
+  ```
+  The exchange is a line-for-line mirror of `@clerk/clerk-expo` 2.19.33 `useSSO` after `openAuthSessionAsync` resolves.
+
+  **Why a latch, not the launch URL.** The question is "is a `startSSOFlow` promise still alive to consume this nonce?". `GoogleSignInButton` sets the latch just before calling `startSSOFlow`. The latch lives in JS memory, so it is lost in exactly the cases where the promise is lost (process death, JS runtime restart) and survives exactly where the promise survives (including Android destroying and recreating the activity under a live runtime, where the recreated activity's intent *is* the callback URL and a launch-URL check would wrongly claim the nonce and race the live promise). First revision used `Linking.getInitialURL()`; independent review flagged the race and it was replaced the same day. Apple button needs no latch: it returns early off iOS.
+
+  Clerk's `signIn`/`signUp`/`setActive` are held in a ref so their identity changes during the exchange do not re-run the effect. Nonce is validated as a non-empty string ≤ 512 chars. A Sentry breadcrumb `sso_cold_start_exchange` marks the cold path (NFR-3).
 
 ### Registration
 Expo Router picks the file up automatically. Root `Stack` in `app/_layout.tsx` already sets `headerShown: false` globally, so no `<Stack.Screen name="oauth_callback">` entry is needed. Adding one with `options={{ animation: "none" }}` is allowed if a push animation is visible on the warm path.
@@ -91,7 +106,7 @@ There is no test runner in the repo (no jest, no `test` script). Adding one for 
 
 1. **AC-1 icon:** `eas build -p android --profile preview`, install, check launcher, drawer, recents, Settings → Apps. Both round and squircle masks (change launcher shape in device settings if available). Screenshot for the Play listing checklist.
 2. **AC-2 warm/cold SSO, 3× consecutive:** tap Google → Custom Tab → return. Expect: splash (cold) → tabs. Never Unmatched Route.
-3. **AC-3 fresh-install cold path, both branches:** uninstall, install, Google SSO with an account that has **never** signed up (sign-up branch → profile-setup), then sign out, sign in again (sign-in branch → tabs). This is the test that validates the "Clerk client reload signs in" assumption on a client with no prior session. If either branch lands on welcome after the grace period, escalate to §6 R1.
+3. **AC-3 fresh-install cold path, both branches:** uninstall, install, Google SSO with an account that has **never** signed up (sign-up branch → profile-setup), then sign out, sign in again (sign-in branch → tabs). This is the test that validates the cold-start exchange, especially the `transferable` sign-up branch. Confirm the `sso_cold_start_exchange` breadcrumb appears in Sentry. If either branch lands on welcome after the grace period, check Sentry for the captured exception from the exchange.
 4. **AC-4 cancel:** open Custom Tab, press back. Expect sign-in screen, button enabled. Confirm no stray navigation after 8 s.
 5. **AC-4b bogus deep link:** `adb shell am start -a android.intent.action.VIEW -d "parkdaddy://definitely-not-a-route"`. Expect navy screen then welcome/tabs, no text.
 6. **AC-5 iOS unchanged:** run iOS simulator from the same commit, sign in with Google once, confirm icon and flow identical to build 18.
@@ -99,7 +114,7 @@ There is no test runner in the repo (no jest, no `test` script). Adding one for 
 
 ## 6. Risks
 
-- **R1 Cold-path sign-in is Clerk-reload-dependent.** `useSSO` only completes the nonce reload inside its promise; on the cold path nothing calls it. The user has observed sign-in succeeding regardless. AC-3 tests the worst case (fresh client, sign-up branch). **If AC-3 fails**, the fallback design is: in the route, `await Linking.getInitialURL()`; if it contains `oauth_callback` and a `rotating_token_nonce` param, call `signIn.reload({ rotatingTokenNonce })` from `useSignIn()` and `setActive` on `createdSessionId`. Gate on `getInitialURL` so the warm path never double-reloads the nonce. Estimated +20 lines, same file. Not built now per user decision.
+- **R1 Cold-path sign-in — RESOLVED 2026-09-20.** Originally deferred: `useSSO` only completes the nonce reload inside its promise, and on the cold path nothing called it. PR #4 review (Codex, P1) flagged this, and reading `useSSO.js` showed the gap was worse than first written: for a never-used Google account Clerk returns `firstFactorVerification.status === "transferable"` and the user is only created by `signUp.create({ transfer: true })`, which also lives inside the dead promise. Returning users signed in via Clerk's client reload, which is what the device test observed; brand-new users would have bounced to welcome. The route now performs the full exchange on cold start (see §3 Logic). Residual risk: AC-3 has not yet been run on device against this revision.
 - **R2 Grace-period misfire.** Slow network on the warm path could exceed 8 s and bounce a succeeding login to welcome. Mitigation: the button's own `router.replace("/(tabs)")` still fires when `setActive` resolves, so the user lands on tabs anyway; the bounce is a brief flash. Tune `GRACE_MS` upward if seen.
 - **R3 Icon mask crop.** 600 px artwork height on a 676 px safe circle leaves 38 px margin top/bottom; the "P" is wider than tall at the top bar, so check the top-left corner of the P under the circular mask specifically (AC-1).
 - **R4 Notification icon** still uses full-colour `icon.png` and will render as a blob on Android. Out of scope here; listed in the parent Phase 1 checklist under FR-4.
@@ -109,7 +124,9 @@ There is no test runner in the repo (no jest, no `test` script). Adding one for 
 - `assets/android-icon-foreground.png` — new, generated by the §2 command.
 - `assets/adaptive-icon.png` — deleted (after reference grep).
 - `app.json` — two lines under `android.adaptiveIcon`.
-- `app/oauth_callback.tsx` — new, ~35 lines.
+- `app/oauth_callback.tsx` — new, ~135 lines after the 2026-09-20 cold-start revision.
+- `src/utils/ssoFlowState.ts` — new, 13 lines, the in-memory latch.
+- `src/components/GoogleSignInButton.tsx` — one import, one `markSsoFlowStarted()` call before `startSSOFlow`. No behavior change on iOS.
 - `app/+not-found.tsx` — new, ~15 lines.
 - `.claude/plans/google-play-first-release-requirements.md` — strike FR-2, correct §1 bullet 4 (android folder date), §7.1 (org account), §8 (gate does not apply).
 
