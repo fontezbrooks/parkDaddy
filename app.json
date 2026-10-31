@@ -28,7 +28,9 @@
             ]
           },
           {
-            "CFBundleURLSchemes": ["parkdaddy"]
+            "CFBundleURLSchemes": [
+              "parkdaddy"
+            ]
           }
         ]
       }
@@ -39,7 +41,7 @@
         "backgroundColor": "#001840"
       },
       "package": "com.parkdaddy.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "plugins": [
       "expo-router",
