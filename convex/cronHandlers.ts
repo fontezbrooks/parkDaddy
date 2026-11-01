@@ -2,7 +2,11 @@ import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { DAILY_DURATION_MS } from "../src/domain/renewal";
-import { cancelScheduled } from "./renewal";
+import {
+  cancelScheduled,
+  clearExtendedState,
+  scheduleSessionEnd,
+} from "./renewal";
 
 const LEGACY_STATUSES = ["renewing", "failed"];
 
@@ -22,26 +26,34 @@ async function reactivateLegacy(
   });
 }
 
+// Any active session still holding a pending renewal.tick (deleted) drops it.
+async function clearLegacyTick(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+): Promise<void> {
+  if (!session.scheduledFunctionId) return;
+  await cancelScheduled(ctx, session.scheduledFunctionId);
+  await ctx.db.patch(session._id, { scheduledFunctionId: undefined });
+}
+
 // (b) Extended Stay sessions become daily sessions ending 24h from now.
 async function migrateExtended(
   ctx: MutationCtx,
   session: Doc<"sessions">,
   now: number,
 ): Promise<void> {
-  await cancelScheduled(ctx, session.weeklyCheckInId);
-  await cancelScheduled(ctx, session.scheduledFunctionId);
   const desiredEndTime = now + DAILY_DURATION_MS;
-  const completionId = await ctx.scheduler.runAt(
+  const legacyPatch = await clearExtendedState(ctx, session, now);
+  const endIds = await scheduleSessionEnd(
+    ctx,
+    session._id,
     desiredEndTime,
-    internal.renewal.completeAtDesiredEnd,
-    { sessionId: session._id },
+    session,
   );
   await ctx.db.patch(session._id, {
     desiredEndTime,
-    weeklyCheckInId: undefined,
-    scheduledFunctionId: undefined,
-    migratedFromExtendedAt: now,
-    completionId,
+    ...legacyPatch,
+    ...endIds,
   });
 }
 
@@ -50,10 +62,23 @@ async function completeOverdue(
   ctx: MutationCtx,
   session: Doc<"sessions">,
 ): Promise<void> {
-  await cancelScheduled(ctx, session.scheduledFunctionId);
   await ctx.scheduler.runAfter(0, internal.renewal.completeAtDesiredEnd, {
     sessionId: session._id,
   });
+}
+
+// (d) Legacy daily sessions created before completionId existed get one.
+async function scheduleMissingCompletion(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+): Promise<void> {
+  if (session.completionId) return;
+  const completionId = await ctx.scheduler.runAt(
+    session.desiredEndTime,
+    internal.renewal.completeAtDesiredEnd,
+    { sessionId: session._id },
+  );
+  await ctx.db.patch(session._id, { completionId });
 }
 
 export const sweep = internalMutation({
@@ -74,10 +99,13 @@ export const sweep = internalMutation({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
     for (const session of active) {
+      await clearLegacyTick(ctx, session);
       if (session.desiredEndTime === Number.MAX_SAFE_INTEGER) {
         await migrateExtended(ctx, session, now);
       } else if (session.desiredEndTime <= now) {
         await completeOverdue(ctx, session);
+      } else {
+        await scheduleMissingCompletion(ctx, session);
       }
     }
   },

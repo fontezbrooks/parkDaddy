@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { normalizePlate } from "../src/domain/renewal";
 
 export const list = query({
   args: {},
@@ -38,12 +39,15 @@ export const add = mutation({
       .unique();
     if (!user) throw new Error("Profile not found");
 
+    const plate = normalizePlate(args.plate);
+    if (!plate) throw new Error("Invalid license plate format");
+
     const existing = (
       await ctx.db
         .query("vehicles")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
         .collect()
-    ).find((v) => v.plate.toUpperCase() === args.plate.toUpperCase());
+    ).find((vehicle) => normalizePlate(vehicle.plate) === plate);
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -56,7 +60,7 @@ export const add = mutation({
 
     return await ctx.db.insert("vehicles", {
       userId: user._id,
-      plate: args.plate.toUpperCase(),
+      plate,
       makeModel: args.makeModel,
       color: args.color,
       lastUsedAt: Date.now(),

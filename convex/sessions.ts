@@ -1,15 +1,19 @@
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   computeDueAt,
   DAILY_DURATION_MS,
-  EXPIRY_WARNING_MS,
   isDuplicateRegistration,
   normalizePlate,
 } from "../src/domain/renewal";
-import { cancelScheduled, scheduleRegistrationPushes } from "./renewal";
+import {
+  cancelScheduled,
+  clearExtendedState,
+  fillMissingRegistrationPushes,
+  scheduleRegistrationPushes,
+  scheduleSessionEnd,
+} from "./renewal";
 
 export const getActive = query({
   args: {},
@@ -207,7 +211,9 @@ async function upsertVehicle(
     .query("vehicles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
-  const existing = vehicles.find((vehicle) => vehicle.plate === plate);
+  const existing = vehicles.find(
+    (vehicle) => normalizePlate(vehicle.plate) === plate,
+  );
   if (existing) {
     await ctx.db.patch(existing._id, { lastUsedAt: Date.now() });
     return existing._id;
@@ -255,17 +261,8 @@ export const create = mutation({
     });
     await ctx.db.insert("renewalLogs", { sessionId, action: "initial" });
 
-    const expiryWarningId = await ctx.scheduler.runAt(
-      desiredEndTime - EXPIRY_WARNING_MS,
-      internal.notifications.sendExpiryWarning,
-      { sessionId },
-    );
-    const completionId = await ctx.scheduler.runAt(
-      desiredEndTime,
-      internal.renewal.completeAtDesiredEnd,
-      { sessionId },
-    );
-    await ctx.db.patch(sessionId, { expiryWarningId, completionId });
+    const endIds = await scheduleSessionEnd(ctx, sessionId, desiredEndTime, {});
+    await ctx.db.patch(sessionId, endIds);
 
     return sessionId;
   },
@@ -320,30 +317,33 @@ export const extend = mutation({
       throw new Error("Session is not active");
     }
 
-    const newDesiredEndTime = session.desiredEndTime + DAILY_DURATION_MS;
+    // Legacy Extended Stay sessions (MAX_SAFE_INTEGER end) migrate here
+    // the same way sweep does: the new end is 24h from now.
+    const now = Date.now();
+    const isLegacyExtended = session.desiredEndTime === Number.MAX_SAFE_INTEGER;
+    const desiredEndTime =
+      (isLegacyExtended ? now : session.desiredEndTime) + DAILY_DURATION_MS;
+    const legacyPatch = isLegacyExtended
+      ? await clearExtendedState(ctx, session, now)
+      : {};
 
-    await cancelScheduled(ctx, session.expiryWarningId);
-    const warningTime = newDesiredEndTime - EXPIRY_WARNING_MS;
-    const expiryWarningId =
-      warningTime > Date.now()
-        ? await ctx.scheduler.runAt(
-            warningTime,
-            internal.notifications.sendExpiryWarning,
-            { sessionId: args.sessionId },
-          )
-        : undefined;
-
-    await cancelScheduled(ctx, session.completionId);
-    const completionId = await ctx.scheduler.runAt(
-      newDesiredEndTime,
-      internal.renewal.completeAtDesiredEnd,
-      { sessionId: args.sessionId },
+    const endIds = await scheduleSessionEnd(
+      ctx,
+      args.sessionId,
+      desiredEndTime,
+      session,
+    );
+    const pushIds = await fillMissingRegistrationPushes(
+      ctx,
+      session,
+      desiredEndTime,
     );
 
     await ctx.db.patch(args.sessionId, {
-      desiredEndTime: newDesiredEndTime,
-      expiryWarningId,
-      completionId,
+      desiredEndTime,
+      ...legacyPatch,
+      ...endIds,
+      ...pushIds,
     });
   },
 });
