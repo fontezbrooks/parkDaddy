@@ -11,6 +11,7 @@ export default defineSchema({
     notifyOnExpiry: v.boolean(),
     notifyOnSuccess: v.boolean(),
     mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
+    guestCode: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
   vehicles: defineTable({

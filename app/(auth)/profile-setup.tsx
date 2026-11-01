@@ -20,11 +20,14 @@ import { FormField } from "@/src/components/FormField";
 export default function ProfileSetupScreen() {
   const { user, isLoaded } = useUser();
   const upsertProfile = useMutation(api.users.upsertProfile);
+  const updateGuestCode = useMutation(api.users.updateGuestCode);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [mobile, setMobile] = useState("");
   const [email, setEmail] = useState("");
+  const [guestCode, setGuestCode] = useState("");
+  const [guestCodeError, setGuestCodeError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,6 +53,7 @@ export default function ProfileSetupScreen() {
   const lastNameRef = useRef<TextInput>(null);
   const mobileRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
+  const guestCodeRef = useRef<TextInput>(null);
 
   const handleSubmit = useCallback(async () => {
     if (!firstName || !lastName || !mobile || !email) {
@@ -62,19 +66,42 @@ export default function ProfileSetupScreen() {
     }
     setLoading(true);
     setError("");
+    setGuestCodeError("");
 
     try {
       await upsertProfile({ firstName, lastName, email, mobile });
-      router.replace("/(tabs)");
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Couldn't save your profile.",
       );
-    } finally {
       setLoading(false);
+      return;
     }
-  }, [firstName, lastName, mobile, email, upsertProfile, hasSsoProfile]);
 
+    if (guestCode.trim() !== "") {
+      try {
+        await updateGuestCode({ guestCode });
+      } catch (err: unknown) {
+        setGuestCodeError(
+          err instanceof Error ? err.message : "Couldn't save your guest code.",
+        );
+        setLoading(false);
+        return;
+      }
+    }
+
+    setLoading(false);
+    router.replace("/(tabs)");
+  }, [
+    firstName,
+    lastName,
+    mobile,
+    email,
+    guestCode,
+    upsertProfile,
+    updateGuestCode,
+    hasSsoProfile,
+  ]);
   if (!isLoaded) return null;
 
   return (
@@ -137,11 +164,11 @@ export default function ProfileSetupScreen() {
               keyboardType="phone-pad"
               textContentType="telephoneNumber"
               autoComplete="tel"
-              returnKeyType={hasSsoProfile ? "go" : "next"}
-              onSubmitEditing={
-                hasSsoProfile ? handleSubmit : () => emailRef.current?.focus()
+              returnKeyType="next"
+              onSubmitEditing={() =>
+                (hasSsoProfile ? guestCodeRef : emailRef).current?.focus()
               }
-              blurOnSubmit={hasSsoProfile}
+              blurOnSubmit={false}
               placeholder="(555) 123-4567"
             />
 
@@ -155,10 +182,28 @@ export default function ProfileSetupScreen() {
                 keyboardType="email-address"
                 textContentType="emailAddress"
                 autoComplete="email"
+                returnKeyType="next"
+                onSubmitEditing={() => guestCodeRef.current?.focus()}
+                blurOnSubmit={false}
+              />
+            )}
+
+            <View>
+              <FormField
+                ref={guestCodeRef}
+                label="Guest code"
+                value={guestCode}
+                onChangeText={setGuestCode}
+                error={guestCodeError}
+                autoCapitalize="characters"
+                autoCorrect={false}
                 returnKeyType="go"
                 onSubmitEditing={handleSubmit}
               />
-            )}
+              <Text style={[typography.bodySm, styles.helper]}>
+                From your building&apos;s guest parking instructions.
+              </Text>
+            </View>
 
             {error ? (
               <View style={styles.errorBox}>
@@ -224,5 +269,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.error,
+  },
+  helper: {
+    color: colors.onSurfaceMuted,
+    marginTop: spacing.xs,
   },
 });
