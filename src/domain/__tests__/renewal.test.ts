@@ -140,3 +140,13 @@ describe("normalizeGuestCode", () => {
     expect(normalizeGuestCode(raw)).toBeNull();
   });
 });
+
+describe.each(["renewing", "failed"])("legacy status %s is live", (status) => {
+  const s = { ...base, status, lastParkEnd: T0 };
+  test("shouldSendDuePush is true when lastParkEnd matches", () => {
+    expect(shouldSendDuePush(s, T0)).toBe(true);
+  });
+  test("shouldMarkLapsed is true at lastParkEnd with no lapsedAt", () => {
+    expect(shouldMarkLapsed(s, T0, T0)).toBe(true);
+  });
+});

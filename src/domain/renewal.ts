@@ -31,7 +31,7 @@ function isCurrentRegistration(
   scheduledForParkEnd: number,
 ): boolean {
   return (
-    session.status === "active" && session.lastParkEnd === scheduledForParkEnd
+    !isFinished(session.status) && session.lastParkEnd === scheduledForParkEnd
   );
 }
 
