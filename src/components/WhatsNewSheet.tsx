@@ -24,8 +24,8 @@ const BULLETS: { title: string; body: string }[] = [
     body: "Parking runs for 24 hours, then asks if you want to continue. Tap the notification to extend in one tap.",
   },
   {
-    title: "Extended Stay mode",
-    body: "Parking for a week or more? Switch to Extended Stay and we'll auto-renew until you turn it off. We check in weekly so you don't forget.",
+    title: "Renewals now take one tap",
+    body: "ParkEaz added a human check. We'll ping you 10 minutes before each 2-hour window ends; tap once and you're covered.",
   },
   {
     title: "Reliable notifications",

@@ -64,7 +64,7 @@ export default function ConfirmStopScreen() {
               { color: colors.onSurfaceVariant, textAlign: "center" },
             ]}
           >
-            Stopping auto-renewing for{" "}
+            Ending your session for{" "}
             <Text style={{ fontFamily: "Inter_600SemiBold" }}>
               {session?.plate}
             </Text>

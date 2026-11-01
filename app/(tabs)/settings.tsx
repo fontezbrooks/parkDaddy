@@ -256,7 +256,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[typography.bodySm, { color: colors.onSurfaceMuted }]}
                 >
-                  When auto-renewal succeeds
+                  When a registration succeeds
                 </Text>
               </View>
               <Switch

@@ -1,19 +1,13 @@
 import { View, Text, StyleSheet } from "react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 
-type SessionStatus = "active" | "renewing" | "failed";
+type SessionStatus = "active";
 
 const STATUS_CONFIG = {
   active: {
     bg: colors.tertiary,
     text: "#0a5c4e",
     label: "ACTIVE (REGISTERED)",
-  },
-  renewing: { bg: "#FFD60A", text: "#5c4a00", label: "RENEWING..." },
-  failed: {
-    bg: colors.secondary,
-    text: colors.onSecondary,
-    label: "RENEWAL FAILED",
   },
 } as const;
 

@@ -185,7 +185,7 @@ export default function WelcomeScreen() {
 
       <Animated.View style={[styles.tag, tagStyle]}>
         <Text style={[typography.bodyLg, styles.tagText]}>
-          One tap. Auto-renewing. Your guest stays parked,{" "}
+          One tap. Every 2 hours. Your guest stays parked,{" "}
           <Text style={styles.tagEmphasis}>you stay chill.</Text>
         </Text>
       </Animated.View>

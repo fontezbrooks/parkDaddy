@@ -65,21 +65,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Register the Extend action category for expiry-warning notifications.
-// opensAppToForeground: true is the honest setting — Expo's background
-// notification action handler only reliably runs on Android via TaskManager,
-// so we open the app and let the extend-duration screen auto-fire the
-// mutation when ?autoExtend=1 is present in the route.
-Notifications.setNotificationCategoryAsync("extend_24h", [
-  {
-    identifier: "EXTEND_24H",
-    buttonTitle: "Extend 24h",
-    options: { opensAppToForeground: true },
-  },
-]).catch((error) => {
-  console.error("Failed to register extend_24h notification category:", error);
-});
-
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
 });
@@ -103,14 +88,6 @@ function useNotificationObserver() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        // If the user tapped the Extend action button (not the notification
-        // body), route to extend-duration with autoExtend=1 so the screen
-        // fires the mutation immediately on mount.
-        if (response.actionIdentifier === "EXTEND_24H") {
-          router.push("/extend-duration?autoExtend=1");
-          return;
-        }
-
         const data = response.notification.request.content.data ?? {};
         const url = data.route;
         if (typeof url !== "string" || !isAllowedRoute(url)) return;

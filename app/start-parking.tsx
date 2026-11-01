@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
@@ -23,23 +23,21 @@ export default function StartParkingScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const profile = useQuery(api.users.getProfile);
   const createSession = useMutation(api.sessions.create);
 
-  const mode = profile?.mode ?? "daily";
   const canProceed = plate.length >= 2;
 
   const handleParkThisCar = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      await createSession({
+      const sessionId = await createSession({
         plate,
         makeModel: makeModel || undefined,
         color: vehicleColor || undefined,
       });
       router.dismissAll();
-      router.replace("/(tabs)");
+      router.replace({ pathname: "/renew", params: { sessionId } });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to start session");
     } finally {
@@ -112,16 +110,11 @@ export default function StartParkingScreen() {
 
         <View style={styles.summary}>
           <Text style={[typography.displaySm, { color: colors.onSurface }]}>
-            {mode === "extended"
-              ? "Extended Stay — auto-renews until you stop it."
-              : "Covered for 24 hours."}
+            Covered for 24 hours, one tap at a time.
           </Text>
-          <Text
-            style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
-          >
-            {mode === "extended"
-              ? "We'll check in once a week so you don't forget."
-              : "We'll auto-renew every 2 hours and ping you before the 24h mark to extend if you need more time."}
+          <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
+            ParkEaz needs a human check every 2 hours. We&apos;ll ping you 10
+            minutes before each window ends.
           </Text>
         </View>
 
