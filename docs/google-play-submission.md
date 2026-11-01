@@ -1,6 +1,6 @@
 # Google Play — First Production Submission
 
-**App:** parkDaddy `com.parkdaddy.app` · **Version:** 3.2.0 (versionCode 3) · **Account:** organization (no closed-test gate)
+**App:** parkDaddy `com.parkdaddy.app` · **Version:** 3.3.0 (versionCode 4) · **Account:** organization (no closed-test gate)
 **Prepared:** 2026-09-28. Everything below is derived from the repo and the Play Console's own forms. Where a value is a judgment call it says so.
 
 ## 3.3.0 release notes
@@ -8,6 +8,8 @@
 Renewals now take one tap. ParkEaz added a human check; parkDaddy pings you before each 2-hour window ends.
 
 Note: the production AAB (versionCode 4) must be rebuilt from this branch's final commit before upload; the build referenced below predates 3.3.0.
+
+Sections below were written for the 3.2.0 submission; where they mention versionCode 3, read versionCode 4.
 
 ## 0. What is already done
 

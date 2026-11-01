@@ -12,33 +12,43 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
 ## Acceptance criteria
 
 - [ ] **AC-1** Fresh install with a guest-code profile, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and guest code visible, one tap registers, Home shows Registered until now+2h within 15 s.
+  - How: Fresh install, sign in, Settings, enter guest code, Home, Park, complete the WebView with one tap on Register.
   - Result:
   - Notes:
 - [ ] **AC-2** Due push arrives 10 minutes before `lastParkEnd`; tapping it opens the renewal screen for the right session on cold and warm start, iOS and Android.
+  - How: Start a session and wait for the due push at parkEnd-10 min, or shorten the wait by patching `lastParkEnd` on the dev deployment; test tap from killed app and from background.
   - Result:
   - Notes:
 - [ ] **AC-3** Ignore the due push: at `lastParkEnd` one lapse push arrives, Home shows Unregistered since HH:MM, no further pushes for 2 hours; renewing clears the gap and schedules the next due push.
+  - How: Start a session, ignore the due push, wait past `lastParkEnd` (or patch it on dev), then renew from Home.
   - Result:
   - Notes:
 - [ ] **AC-4** Forced CAPTCHA challenge (fresh device or VPN): challenge is visible and solvable inside the WebView and the flow completes.
+  - How: Force a challenge with a fresh device or a VPN exit in another country.
   - Result:
   - Notes:
 - [ ] **AC-5** Page with `#selecttime` renamed: autofill skips, banner shows the manual instruction, manual completion still records the registration.
+  - How: Serve or inject a page copy with `#selecttime` renamed (debug build or local proxy), then complete manually.
   - Result:
   - Notes:
 - [ ] **AC-6** Existing user with `mode: "extended"` and an open extended session upgrades: session gets a 24h end, notice shown once, weekly check-in cancelled, no crash.
+  - How: On the dev deployment, insert a session with `desiredEndTime: Number.MAX_SAFE_INTEGER` and `mode: "extended"` via `npx convex import --append`; open the app before and after the next sweep.
   - Result:
   - Notes:
 - [ ] **AC-7** `convex/parkeaz.ts` is gone; `grep -r parkeaz.com convex/` returns only comments; deploy succeeds against the recovered production source.
+  - How: Run `grep -r parkeaz.com convex/` and `npx convex deploy` against the recovered production source.
   - Result:
   - Notes:
 - [ ] **AC-8** At `desiredEndTime` the session completes and no due or lapse push fires afterward.
+  - How: Start a session with a short `desiredEndTime` (patch on dev) and watch past it for any due or lapse push.
   - Result:
   - Notes:
 - [ ] **AC-9** Sentry shows `renew_result` breadcrumbs with no guest code, email, or phone values.
+  - How: After an AC-1 run, open the Sentry issue/breadcrumb view and inspect the `renew_result` entries.
   - Result:
   - Notes:
 - [ ] **AC-10** Unit tests pass in CI: derived state boundaries, `recordRegistration` scheduling math, injected-script page detection against captured fixtures (`/paid`, `/select_product`, `/checkout`, `/successful_transaction`, broken-selector).
+  - How: Run `npx jest` locally and confirm the CI run is green.
   - Result:
   - Notes:
 
@@ -66,7 +76,7 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
   - Result:
   - Notes:
 
-## Regression items
+### Regression
 
 - [ ] Email sign-in: each Clerk status path works on a build: complete, second factor via email code, forced new password, unsupported.
   - Result:
@@ -86,7 +96,7 @@ The fixtures in `src/parkeaz/__fixtures__/` for `select_product.html`, `checkout
 
 ## expo-doctor output
 
-Run on 2026-10-31 (`npx expo-doctor` 1.21.5). 17/18 checks passed, 1 warning-class failure (unrelated Expo patch versions), not addressed:
+Run on 2026-10-31 (`npx expo-doctor` 1.21.5). 17/18 checks passed, 1 failed check (patch-version mismatches on 11 expo packages, not addressed in this release):
 
 ```
 Running 18 checks on your project...
