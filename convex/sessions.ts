@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -165,10 +165,13 @@ async function requireUser(ctx: MutationCtx): Promise<Doc<"users">> {
   return user;
 }
 
-async function requireOwnedSession(
+type OwnedSession = { user: Doc<"users">; session: Doc<"sessions"> };
+
+// Returns null when the session belongs to someone else.
+async function findOwnedSession(
   ctx: MutationCtx,
   sessionId: Id<"sessions">,
-): Promise<{ user: Doc<"users">; session: Doc<"sessions"> }> {
+): Promise<OwnedSession | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Unauthenticated");
 
@@ -179,10 +182,17 @@ async function requireOwnedSession(
     .query("users")
     .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
     .unique();
-  if (!user || session.userId !== user._id) {
-    throw new Error("Not authorized");
-  }
+  if (!user || session.userId !== user._id) return null;
   return { user, session };
+}
+
+async function requireOwnedSession(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+): Promise<OwnedSession> {
+  const owned = await findOwnedSession(ctx, sessionId);
+  if (!owned) throw new Error("Not authorized");
+  return owned;
 }
 
 async function hasLiveSession(
@@ -277,10 +287,26 @@ export const recordRegistration = mutation({
     parkEndSource: v.union(v.literal("page"), v.literal("fallback")),
   },
   handler: async (ctx, args) => {
-    const { session } = await requireOwnedSession(ctx, args.sessionId);
-    if (session.status !== "active") throw new Error("Session is not active");
+    // Coded errors survive production redaction; the client keys on `code`.
+    const owned = await findOwnedSession(ctx, args.sessionId);
+    if (!owned) {
+      throw new ConvexError({
+        code: "not_authorized",
+        message: "Not authorized",
+      });
+    }
+    const { session } = owned;
+    if (session.status !== "active") {
+      throw new ConvexError({
+        code: "session_not_active",
+        message: "Session is not active",
+      });
+    }
     if (!args.parkId.trim() || args.parkEnd <= args.parkStart) {
-      throw new Error("Invalid registration");
+      throw new ConvexError({
+        code: "invalid_registration",
+        message: "Invalid registration",
+      });
     }
     if (isDuplicateRegistration(session, args.parkId)) return;
 

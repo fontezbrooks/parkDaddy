@@ -14,6 +14,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { AutofillValues } from "@/src/parkeaz/pages";
 import {
   bannerText,
+  breadcrumbResultFor,
   injectionFor,
   isFatalSaveError,
   isParkEazOrigin,
@@ -25,11 +26,6 @@ import {
 
 const HOME = "/(tabs)";
 const TICK_MS = 1000;
-const RESULT_STEPS: readonly RenewFlowState["step"][] = [
-  "done",
-  "parkeaz_error",
-  "load_error",
-];
 
 type Dispatch = (event: RenewFlowEvent) => void;
 
@@ -65,12 +61,13 @@ function useRenewTelemetry(state: RenewFlowState, startedAt: number | null) {
 
   useEffect(() => {
     stepRef.current = state.step;
-    if (!RESULT_STEPS.includes(state.step)) return;
+    const result = breadcrumbResultFor(state.step);
+    if (!result) return;
     const elapsedMs = Date.now() - (startRef.current ?? Date.now());
     Sentry.addBreadcrumb({
       category: "renew",
       message: "renew_result",
-      data: { result: state.step, elapsedMs },
+      data: { result, elapsedMs },
     });
   }, [state.step]);
 
@@ -123,18 +120,18 @@ function useSaveRegistration(
 }
 
 // Reload a stale ParkEaz page when the user returns from the background.
-function useForegroundReload(step: RenewFlowState["step"], reload: () => void) {
-  const stepRef = useRef(step);
+function useForegroundReload(isReloadable: boolean, reload: () => void) {
+  const isReloadableRef = useRef(isReloadable);
   useEffect(() => {
-    stepRef.current = step;
-  }, [step]);
+    isReloadableRef.current = isReloadable;
+  }, [isReloadable]);
 
   useEffect(() => {
     let previous = AppState.currentState;
     const sub = AppState.addEventListener("change", (next) => {
       const isReturning = previous === "background" && next === "active";
       previous = next;
-      if (isReturning && stepRef.current === "page") reload();
+      if (isReturning && isReloadableRef.current) reload();
     });
     return () => sub.remove();
   }, [reload]);
@@ -219,7 +216,11 @@ export function useRenewFlow(
     state.step !== "done",
   );
   useRenewTelemetry(state, webView.startedAt);
-  useForegroundReload(state.step, webView.reload);
+  // Never reload a success page before its probe has captured the parkid.
+  useForegroundReload(
+    state.step === "page" && state.page !== "success",
+    webView.reload,
+  );
 
   const { reload } = webView;
   const onRetry = useCallback(() => {

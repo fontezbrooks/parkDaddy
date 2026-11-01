@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import {
   PARKEAZ_ORIGIN,
   SUCCESS_PROBE_SCRIPT,
@@ -160,11 +161,7 @@ export function parseRenewParams(
 }
 
 export function isParkEazOrigin(url: string): boolean {
-  try {
-    return new URL(url).origin === PARKEAZ_ORIGIN;
-  } catch {
-    return false;
-  }
+  return originOf(url) === PARKEAZ_ORIGIN;
 }
 
 // The only gate between user data and a page: nothing runs off ParkEaz's
@@ -225,10 +222,57 @@ export function parseWebViewMessage(
   return null;
 }
 
-const FATAL_SAVE_ERRORS = ["Not authorized", "Session is not active"];
+const FATAL_SAVE_CODES: readonly string[] = [
+  "not_authorized",
+  "session_not_active",
+  "invalid_registration",
+];
 
-// Retrying these cannot succeed: the session is foreign or already closed.
+// Retrying these cannot succeed. Matches the code, never the message text,
+// because production Convex redacts plain error messages.
 export function isFatalSaveError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return FATAL_SAVE_ERRORS.some((text) => error.message.includes(text));
+  if (!(error instanceof ConvexError)) return false;
+  const data: unknown = error.data;
+  if (typeof data !== "object" || data === null) return false;
+  const { code } = data as { code?: unknown };
+  return typeof code === "string" && FATAL_SAVE_CODES.includes(code);
+}
+
+export type RenewResult = "success" | "parkeaz_error" | "load_error";
+
+export function breadcrumbResultFor(
+  step: RenewFlowState["step"],
+): RenewResult | null {
+  if (step === "done") return "success";
+  if (step === "parkeaz_error" || step === "load_error") return step;
+  return null;
+}
+
+// Top-frame navigation stays on ParkEaz and reCAPTCHA; sub-frames are free.
+const TOP_FRAME_ORIGINS: readonly string[] = [
+  PARKEAZ_ORIGIN,
+  "https://www.google.com",
+  "https://www.gstatic.com",
+  "https://recaptcha.net",
+  "https://www.recaptcha.net",
+];
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function shouldLoadRequest(request: {
+  url: string;
+  isTopFrame?: boolean;
+}): "allow" | "open_external" {
+  if (request.isTopFrame !== true) return "allow";
+  if (request.url.startsWith("about:")) return "allow";
+  const origin = originOf(request.url);
+  return origin !== null && TOP_FRAME_ORIGINS.includes(origin)
+    ? "allow"
+    : "open_external";
 }

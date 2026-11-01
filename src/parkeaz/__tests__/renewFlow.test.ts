@@ -5,8 +5,11 @@ import {
   injectionFor,
   parseWebViewMessage,
   isFatalSaveError,
+  breadcrumbResultFor,
+  shouldLoadRequest,
   type RenewFlowState,
 } from "../renewFlow";
+import { ConvexError } from "convex/values";
 import { SUCCESS_PROBE_SCRIPT, type AutofillValues } from "../pages";
 
 const now = 1_800_000_000_000;
@@ -294,16 +297,74 @@ describe("parseWebViewMessage", () => {
 });
 
 describe("isFatalSaveError", () => {
-  test.each([
-    new Error("Uncaught Error: Not authorized"),
-    new Error("[CONVEX M(sessions:recordRegistration)] Session is not active"),
-  ])("ownership and closed-session errors cannot be retried: %s", (error) => {
-    expect(isFatalSaveError(error)).toBe(true);
-  });
-  test.each([new Error("Network request failed"), "boom", null, undefined])(
-    "other failures stay retryable: %s",
-    (error) => {
-      expect(isFatalSaveError(error)).toBe(false);
+  const coded = (code: string) => new ConvexError({ code, message: code });
+
+  test.each(["not_authorized", "session_not_active", "invalid_registration"])(
+    "coded %s errors cannot be retried",
+    (code) => {
+      expect(isFatalSaveError(coded(code))).toBe(true);
     },
   );
+  test.each([
+    ["an unknown code", coded("rate_limited")],
+    ["a ConvexError with string data", new ConvexError("Not authorized")],
+    ["a plain Error carrying the old text", new Error("Not authorized")],
+    ["a redacted server error", new Error("Server Error")],
+    ["a network failure", new Error("Network request failed")],
+    ["a string", "boom"],
+    ["null", null],
+    ["undefined", undefined],
+  ])("%s stays retryable", (_label, error) => {
+    expect(isFatalSaveError(error)).toBe(false);
+  });
+});
+
+describe("breadcrumbResultFor", () => {
+  test.each([
+    ["done", "success"],
+    ["parkeaz_error", "parkeaz_error"],
+    ["load_error", "load_error"],
+  ] as const)("%s reports %s", (step, result) => {
+    expect(breadcrumbResultFor(step)).toBe(result);
+  });
+  test.each(["loading", "page", "saving", "save_failed"] as const)(
+    "%s is not a result",
+    (step) => {
+      expect(breadcrumbResultFor(step)).toBeNull();
+    },
+  );
+});
+
+describe("shouldLoadRequest", () => {
+  test.each([
+    "https://paid.parkeaz.com/paid?zone=622&propertyid=202",
+    "https://paid.parkeaz.com/termsandconditions.pdf",
+    "https://www.google.com/recaptcha/api2/anchor",
+    "https://www.gstatic.com/recaptcha/releases/x/recaptcha__en.js",
+    "https://recaptcha.net/recaptcha/api.js",
+    "https://www.recaptcha.net/recaptcha/api.js",
+  ])("allows top-frame %s", (url) => {
+    expect(shouldLoadRequest({ url, isTopFrame: true })).toBe("allow");
+  });
+  test.each([
+    "https://example.com",
+    "http://paid.parkeaz.com/paid",
+    "https://paid.parkeaz.com.evil.example/paid",
+    "not a url",
+  ])("opens top-frame %s externally", (url) => {
+    expect(shouldLoadRequest({ url, isTopFrame: true })).toBe("open_external");
+  });
+  test("allows sub-frame requests to any origin", () => {
+    expect(
+      shouldLoadRequest({ url: "https://example.com", isTopFrame: false }),
+    ).toBe("allow");
+  });
+  test("allows requests without frame info (Android)", () => {
+    expect(shouldLoadRequest({ url: "https://example.com" })).toBe("allow");
+  });
+  test("allows about:blank", () => {
+    expect(shouldLoadRequest({ url: "about:blank", isTopFrame: true })).toBe(
+      "allow",
+    );
+  });
 });
