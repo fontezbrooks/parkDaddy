@@ -6,6 +6,7 @@ import {
   isDuplicateRegistration,
   normalizePlate,
   normalizeGuestCode,
+  coverageEndFor,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
 } from "../renewal";
@@ -148,5 +149,34 @@ describe.each(["renewing", "failed"])("legacy status %s is live", (status) => {
   });
   test("shouldMarkLapsed is true at lastParkEnd with no lapsedAt", () => {
     expect(shouldMarkLapsed(s, T0, T0)).toBe(true);
+  });
+});
+
+describe("coverageEndFor", () => {
+  test("passes a normal desiredEndTime through", () => {
+    expect(
+      coverageEndFor({
+        desiredEndTime: 500,
+        lastParkEnd: 300,
+        _creationTime: 100,
+      }),
+    ).toBe(500);
+  });
+  test("uses lastParkEnd for the legacy sentinel", () => {
+    expect(
+      coverageEndFor({
+        desiredEndTime: Number.MAX_SAFE_INTEGER,
+        lastParkEnd: 300,
+        _creationTime: 100,
+      }),
+    ).toBe(300);
+  });
+  test("falls back to _creationTime for the sentinel without lastParkEnd", () => {
+    expect(
+      coverageEndFor({
+        desiredEndTime: Number.MAX_SAFE_INTEGER,
+        _creationTime: 100,
+      }),
+    ).toBe(100);
   });
 });

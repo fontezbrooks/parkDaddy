@@ -20,12 +20,8 @@ const BULLETS: { title: string; body: string }[] = [
     body: "No more duration picker. Park On to start, Park Off to stop.",
   },
   {
-    title: "Daily mode (default)",
-    body: "Parking runs for 24 hours, then asks if you want to continue. Tap the notification to extend in one tap.",
-  },
-  {
     title: "Renewals now take one tap",
-    body: "ParkEaz added a human check. We'll ping you 10 minutes before each 2-hour window ends; tap once and you're covered.",
+    body: "Sessions run 24 hours. ParkEaz added a human check, so we'll ping you 10 minutes before each 2-hour window ends; tap once in the app and you're covered.",
   },
   {
     title: "Reliable notifications",
@@ -74,7 +70,7 @@ export function WhatsNewSheet() {
           contentContainerStyle={styles.scrollContent}
         >
           <Text style={[typography.labelSm, styles.kicker]}>
-            What's new in v{currentVersion}
+            What&apos;s new in v{currentVersion}
           </Text>
           <Text style={[typography.displayMd, styles.heading]}>
             Simpler parking, smarter notifications.

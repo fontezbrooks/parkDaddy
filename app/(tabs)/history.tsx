@@ -21,6 +21,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
+import { coverageEndFor } from "@/src/domain/renewal";
 import { colors, typography, spacing } from "@/src/theme";
 
 const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
@@ -43,7 +44,7 @@ function getStatusStyle(status: string) {
 }
 
 function sessionCoverageMs(s: SessionItem): number {
-  return Math.max(0, s.desiredEndTime - s._creationTime);
+  return Math.max(0, coverageEndFor(s) - s._creationTime);
 }
 
 function computeSummary(sessions: SessionItem[]) {

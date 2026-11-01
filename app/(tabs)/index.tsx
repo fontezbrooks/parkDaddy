@@ -15,7 +15,7 @@ import Animated, {
 import * as Sentry from "@sentry/react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { ActiveSessionHero } from "@/src/components/home/ActiveSessionHero";
-import { deriveSessionState } from "@/src/domain/renewal";
+import { coverageEndFor, deriveSessionState } from "@/src/domain/renewal";
 import { mapConvexError } from "@/src/utils/convexErrors";
 
 type ActiveSession = NonNullable<
@@ -82,7 +82,7 @@ function ActiveState({ session }: { session: ActiveSession }) {
     router.push({ pathname: "/renew", params: { sessionId: session._id } });
   }, [session._id]);
 
-  const endTime = new Date(session.desiredEndTime).toLocaleTimeString([], {
+  const endTime = new Date(coverageEndFor(session)).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -108,12 +108,6 @@ function ActiveState({ session }: { session: ActiveSession }) {
 // ─────────────────────────────────────────────────────────────
 // Inactive states
 // ─────────────────────────────────────────────────────────────
-
-type InactiveCommonProps = {
-  onPark: (plate: string) => Promise<void>;
-  loadingPlate: string | null;
-  error: string;
-};
 
 function FirstTimerState() {
   return (
@@ -332,7 +326,8 @@ function InactiveState({
       setLoadingPlate(plate);
       setError("");
       try {
-        await createSession({ plate });
+        const sessionId = await createSession({ plate });
+        router.push({ pathname: "/renew", params: { sessionId } });
       } catch (err) {
         const friendly = mapConvexError(err);
         setError(friendly);

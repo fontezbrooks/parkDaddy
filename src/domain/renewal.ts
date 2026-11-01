@@ -87,3 +87,17 @@ export function normalizeGuestCode(raw: string): string | null {
   const code = raw.trim().toUpperCase();
   return GUEST_CODE_PATTERN.test(code) ? code : null;
 }
+
+export type CoverageSessionLike = {
+  desiredEndTime: number;
+  lastParkEnd?: number;
+  _creationTime: number;
+};
+
+// Legacy Extended Stay sessions store MAX_SAFE_INTEGER as desiredEndTime.
+export function coverageEndFor(session: CoverageSessionLike): number {
+  if (session.desiredEndTime !== Number.MAX_SAFE_INTEGER) {
+    return session.desiredEndTime;
+  }
+  return session.lastParkEnd ?? session._creationTime;
+}

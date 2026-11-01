@@ -16,11 +16,16 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { CountdownTimer } from "@/src/components/CountdownTimer";
-import type { SessionState } from "@/src/domain/renewal";
+import { coverageEndFor, type SessionState } from "@/src/domain/renewal";
 
 const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
 
-type HeroSession = { plate: string; desiredEndTime: number };
+type HeroSession = {
+  plate: string;
+  desiredEndTime: number;
+  lastParkEnd?: number;
+  _creationTime: number;
+};
 
 type Props = {
   state: SessionState;
@@ -134,7 +139,7 @@ export function ActiveSessionHero({
   onEnd,
 }: Props) {
   const anim = useHeroEntrance();
-  const copy = copyFor(state, session.desiredEndTime);
+  const copy = copyFor(state, coverageEndFor(session));
   const onPrimary = copy.primary.action === "renew" ? onRenew : onAddTime;
 
   return (
@@ -156,7 +161,7 @@ export function ActiveSessionHero({
 
       <Animated.View style={[styles.countdownBlock, anim.countdownStyle]}>
         <CountdownTimer
-          targetTime={session.desiredEndTime}
+          targetTime={coverageEndFor(session)}
           variant="large"
           showSeconds={false}
           style={styles.countdownNumber}
