@@ -4,10 +4,11 @@ import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  computeDueAt,
   EXPIRY_WARNING_MS,
+  planRegistrationPushes,
   shouldMarkLapsed,
   shouldSendDuePush,
+  type RegistrationPushPlan,
 } from "../src/domain/renewal";
 
 type ScheduledId = Id<"_scheduled_functions">;
@@ -29,27 +30,28 @@ type PushIds = {
   lapsePushId: ScheduledId | undefined;
 };
 
-async function scheduleDue(
+// Performs only the runAt calls a plan asks for; the decisions live in
+// planRegistrationPushes.
+async function schedulePlan(
   ctx: MutationCtx,
   sessionId: Id<"sessions">,
   parkEnd: number,
-): Promise<ScheduledId> {
-  return await ctx.scheduler.runAt(
-    computeDueAt(parkEnd),
-    internal.renewal.sendDuePush,
-    { sessionId, scheduledForParkEnd: parkEnd },
-  );
-}
-
-async function scheduleLapse(
-  ctx: MutationCtx,
-  sessionId: Id<"sessions">,
-  parkEnd: number,
-): Promise<ScheduledId> {
-  return await ctx.scheduler.runAt(parkEnd, internal.renewal.markLapsed, {
-    sessionId,
-    scheduledForParkEnd: parkEnd,
-  });
+  plan: RegistrationPushPlan,
+): Promise<{ due?: ScheduledId; lapse?: ScheduledId }> {
+  const args = { sessionId, scheduledForParkEnd: parkEnd };
+  const due =
+    plan.due === null
+      ? undefined
+      : await ctx.scheduler.runAt(plan.due, internal.renewal.sendDuePush, args);
+  const lapse =
+    plan.lapse === null
+      ? undefined
+      : await ctx.scheduler.runAt(
+          plan.lapse,
+          internal.renewal.markLapsed,
+          args,
+        );
+  return { due, lapse };
 }
 
 /**
@@ -64,16 +66,14 @@ export async function scheduleRegistrationPushes(
   await cancelScheduled(ctx, session.duePushId);
   await cancelScheduled(ctx, session.lapsePushId);
 
-  const { _id: sessionId, desiredEndTime } = session;
-  const duePushId =
-    computeDueAt(parkEnd) < desiredEndTime
-      ? await scheduleDue(ctx, sessionId, parkEnd)
-      : undefined;
-  const lapsePushId =
-    parkEnd < desiredEndTime
-      ? await scheduleLapse(ctx, sessionId, parkEnd)
-      : undefined;
-  return { duePushId, lapsePushId };
+  const plan = planRegistrationPushes({
+    parkEnd,
+    desiredEndTime: session.desiredEndTime,
+    now: null,
+    existing: {},
+  });
+  const ids = await schedulePlan(ctx, session._id, parkEnd, plan);
+  return { duePushId: ids.due, lapsePushId: ids.lapse };
 }
 
 /**
@@ -86,23 +86,23 @@ export async function fillMissingRegistrationPushes(
   session: Doc<"sessions">,
   desiredEndTime: number,
 ): Promise<PushIds> {
-  const { _id: sessionId, lastParkEnd, duePushId, lapsePushId } = session;
+  const { lastParkEnd, duePushId, lapsePushId } = session;
   if (lastParkEnd === undefined || session.lapsedAt !== undefined) {
     return { duePushId, lapsePushId };
   }
-  const now = Date.now();
-  const isSchedulable = (at: number) => at > now && at < desiredEndTime;
+  const plan = planRegistrationPushes({
+    parkEnd: lastParkEnd,
+    desiredEndTime,
+    now: Date.now(),
+    existing: {
+      duePushId: duePushId !== undefined,
+      lapsePushId: lapsePushId !== undefined,
+    },
+  });
+  const ids = await schedulePlan(ctx, session._id, lastParkEnd, plan);
   return {
-    duePushId:
-      duePushId ??
-      (isSchedulable(computeDueAt(lastParkEnd))
-        ? await scheduleDue(ctx, sessionId, lastParkEnd)
-        : undefined),
-    lapsePushId:
-      lapsePushId ??
-      (isSchedulable(lastParkEnd)
-        ? await scheduleLapse(ctx, sessionId, lastParkEnd)
-        : undefined),
+    duePushId: duePushId ?? ids.due,
+    lapsePushId: lapsePushId ?? ids.lapse,
   };
 }
 

@@ -9,6 +9,7 @@ import {
   coverageEndFor,
   digitsOnly,
   hasGuestCode,
+  planRegistrationPushes,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
 } from "../renewal";
@@ -209,3 +210,65 @@ describe("hasGuestCode", () => {
   });
 });
 
+describe("planRegistrationPushes", () => {
+  const desiredEndTime = T0 + 24 * 3600_000;
+  const parkEnd = T0 + REGISTRATION_MS;
+  const fresh = { desiredEndTime, now: null, existing: {} };
+
+  test("schedules both inside the session", () => {
+    expect(planRegistrationPushes({ ...fresh, parkEnd })).toEqual({
+      due: parkEnd - DUE_BUFFER_MS,
+      lapse: parkEnd,
+    });
+  });
+  test("skips due when computeDueAt(parkEnd) >= desiredEndTime", () => {
+    const end = desiredEndTime + DUE_BUFFER_MS;
+    expect(planRegistrationPushes({ ...fresh, parkEnd: end })).toEqual({
+      due: null,
+      lapse: null,
+    });
+    const atEdge = planRegistrationPushes({
+      ...fresh,
+      parkEnd: desiredEndTime + DUE_BUFFER_MS - 1,
+    });
+    expect(atEdge.due).toBe(desiredEndTime - 1);
+  });
+  test("skips lapse when parkEnd >= desiredEndTime but keeps due", () => {
+    expect(
+      planRegistrationPushes({ ...fresh, parkEnd: desiredEndTime }),
+    ).toEqual({ due: desiredEndTime - DUE_BUFFER_MS, lapse: null });
+  });
+  test("does not re-create pushes that already exist", () => {
+    expect(
+      planRegistrationPushes({
+        ...fresh,
+        parkEnd,
+        existing: { duePushId: true, lapsePushId: true },
+      }),
+    ).toEqual({ due: null, lapse: null });
+    expect(
+      planRegistrationPushes({
+        ...fresh,
+        parkEnd,
+        existing: { duePushId: true },
+      }),
+    ).toEqual({ due: null, lapse: parkEnd });
+  });
+  test("with now, skips times at or before it", () => {
+    const now = parkEnd - DUE_BUFFER_MS;
+    expect(planRegistrationPushes({ ...fresh, parkEnd, now })).toEqual({
+      due: null,
+      lapse: parkEnd,
+    });
+    expect(planRegistrationPushes({ ...fresh, parkEnd, now: parkEnd })).toEqual(
+      { due: null, lapse: null },
+    );
+  });
+  test("a fresh registration (now null) still schedules elapsed times", () => {
+    const pastEnd = T0 - 1;
+    expect(planRegistrationPushes({ ...fresh, parkEnd: pastEnd })).toEqual({
+      due: pastEnd - DUE_BUFFER_MS,
+      lapse: pastEnd,
+    });
+  });
+});

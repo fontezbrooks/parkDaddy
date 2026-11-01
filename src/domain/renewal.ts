@@ -103,6 +103,33 @@ export function digitsOnly(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
+export type RegistrationPushPlan = {
+  due: number | null;
+  lapse: number | null;
+};
+
+/**
+ * Times to schedule the due and lapse pushes for the newest registration.
+ * Nothing at or past desiredEndTime, nothing already scheduled. `now: null`
+ * means a fresh registration, where an elapsed time still fires at once;
+ * with a number, times at or before it are skipped so nothing fires twice.
+ */
+export function planRegistrationPushes(args: {
+  parkEnd: number;
+  desiredEndTime: number;
+  now: number | null;
+  existing: { duePushId?: boolean; lapsePushId?: boolean };
+}): RegistrationPushPlan {
+  const { parkEnd, desiredEndTime, now, existing } = args;
+  const isSchedulable = (at: number) =>
+    at < desiredEndTime && (now === null || at > now);
+  const dueAt = computeDueAt(parkEnd);
+  return {
+    due: !existing.duePushId && isSchedulable(dueAt) ? dueAt : null,
+    lapse: !existing.lapsePushId && isSchedulable(parkEnd) ? parkEnd : null,
+  };
+}
+
 export type CoverageSessionLike = {
   desiredEndTime: number;
   lastParkEnd?: number;
