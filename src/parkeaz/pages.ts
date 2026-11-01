@@ -77,8 +77,9 @@ const PAID_BODY = `
   byId("selecttime").click();
 `;
 
+// Never submits without a guest code: the user fills it in by hand instead.
 const SELECT_PRODUCT_BODY = `
-  if (!hasAll(["mobile", "email", "firstname", "lastname", "guestcode"]) || !document.forms[0]) {
+  if (!hasAll(["mobile", "email", "firstname", "lastname", "guestcode"]) || !byId("guestcode").form) {
     post("skipped");
     return;
   }
@@ -86,9 +87,10 @@ const SELECT_PRODUCT_BODY = `
   setValue("email", V.email);
   setValue("firstname", V.firstName);
   setValue("lastname", V.lastName);
+  if (!V.guestCode) { post("skipped"); return; }
   setValue("guestcode", V.guestCode);
   post("applied");
-  document.forms[0].submit();
+  byId("guestcode").form.submit();
 `;
 
 const PAGE_BODIES: Partial<Record<ParkEazPage, string>> = {

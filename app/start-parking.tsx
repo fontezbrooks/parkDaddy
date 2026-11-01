@@ -9,10 +9,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
+import {
+  GUEST_CODE_REQUIRED_MESSAGE,
+  hasGuestCode,
+} from "@/src/domain/renewal";
 
 export default function StartParkingScreen() {
   const params = useLocalSearchParams<{ plate?: string }>();
@@ -24,10 +28,17 @@ export default function StartParkingScreen() {
   const [error, setError] = useState("");
 
   const createSession = useMutation(api.sessions.create);
+  const profile = useQuery(api.users.getProfile);
 
-  const canProceed = plate.length >= 2;
+  const canProceed = plate.length >= 2 && profile !== undefined;
 
   const handleParkThisCar = useCallback(async () => {
+    // Renewals cannot submit without a guest code: add it before parking.
+    if (!hasGuestCode(profile)) {
+      setError(GUEST_CODE_REQUIRED_MESSAGE);
+      router.push("/(tabs)/settings");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -43,7 +54,7 @@ export default function StartParkingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [createSession, plate, makeModel, vehicleColor]);
+  }, [createSession, plate, makeModel, vehicleColor, profile]);
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>

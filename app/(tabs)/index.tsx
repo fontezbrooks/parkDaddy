@@ -15,7 +15,12 @@ import Animated, {
 import * as Sentry from "@sentry/react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { ActiveSessionHero } from "@/src/components/home/ActiveSessionHero";
-import { coverageEndFor, deriveSessionState } from "@/src/domain/renewal";
+import {
+  coverageEndFor,
+  deriveSessionState,
+  GUEST_CODE_REQUIRED_MESSAGE,
+  hasGuestCode,
+} from "@/src/domain/renewal";
 import { mapConvexError } from "@/src/utils/convexErrors";
 
 type ActiveSession = NonNullable<
@@ -31,6 +36,17 @@ function formatRelative(ms: number): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+// Renewals cannot submit without a guest code: send the user to Settings.
+function ensureGuestCode(
+  isGuestCodeSet: boolean,
+  setError: (message: string) => void,
+): boolean {
+  if (isGuestCodeSet) return true;
+  setError(GUEST_CODE_REQUIRED_MESSAGE);
+  router.push("/(tabs)/settings");
+  return false;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -74,13 +90,22 @@ function useNow(): number {
   return now;
 }
 
-function ActiveState({ session }: { session: ActiveSession }) {
+function ActiveState({
+  session,
+  isGuestCodeSet,
+}: {
+  session: ActiveSession;
+  isGuestCodeSet: boolean;
+}) {
   const now = useNow();
   const state = deriveSessionState(session, now);
+  const [error, setError] = useState("");
 
   const openRenew = useCallback(() => {
+    if (!ensureGuestCode(isGuestCodeSet, setError)) return;
+    setError("");
     router.push({ pathname: "/renew", params: { sessionId: session._id } });
-  }, [session._id]);
+  }, [session._id, isGuestCodeSet]);
 
   const endTime = new Date(coverageEndFor(session)).toLocaleTimeString([], {
     hour: "2-digit",
@@ -101,6 +126,7 @@ function ActiveState({ session }: { session: ActiveSession }) {
         onAddTime={() => router.push("/extend-duration")}
         onEnd={() => router.push("/confirm-stop")}
       />
+      {error ? <InlineError message={error} /> : null}
     </>
   );
 }
@@ -312,9 +338,11 @@ function MultiVehicleState({
 function InactiveState({
   lastParkedPlate,
   lastParkedAt,
+  isGuestCodeSet,
 }: {
   lastParkedPlate: string | null;
   lastParkedAt: number | null;
+  isGuestCodeSet: boolean;
 }) {
   const vehicles = useQuery(api.vehicles.list) ?? [];
   const createSession = useMutation(api.sessions.create);
@@ -323,6 +351,7 @@ function InactiveState({
 
   const handlePark = useCallback(
     async (plate: string) => {
+      if (!ensureGuestCode(isGuestCodeSet, setError)) return;
       setLoadingPlate(plate);
       setError("");
       try {
@@ -338,7 +367,7 @@ function InactiveState({
         setLoadingPlate(null);
       }
     },
-    [createSession],
+    [createSession, isGuestCodeSet],
   );
 
   if (vehicles.length === 0) {
@@ -402,18 +431,23 @@ function InlineError({ message }: { message: string }) {
 export default function HomeScreen() {
   const session = useQuery(api.sessions.getActive);
   const lastParked = useQuery(api.sessions.getLastParked);
+  const profile = useQuery(api.users.getProfile);
+  const isLoading =
+    session === undefined || lastParked === undefined || profile === undefined;
+  const isGuestCodeSet = hasGuestCode(profile);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      {session === undefined || lastParked === undefined ? (
+      {isLoading ? (
         <LoadingState />
       ) : session === null ? (
         <InactiveState
           lastParkedPlate={lastParked?.plate ?? null}
           lastParkedAt={lastParked?.endedAt ?? null}
+          isGuestCodeSet={isGuestCodeSet}
         />
       ) : (
-        <ActiveState session={session} />
+        <ActiveState session={session} isGuestCodeSet={isGuestCodeSet} />
       )}
     </SafeAreaView>
   );

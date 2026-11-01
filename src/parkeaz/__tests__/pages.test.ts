@@ -28,6 +28,7 @@ function runInjection(
   html: string,
   page: "paid" | "select_product",
   setup?: () => void,
+  injected = values,
 ) {
   document.documentElement.innerHTML = html;
   const posted: unknown[] = [];
@@ -36,7 +37,7 @@ function runInjection(
   };
   for (const f of Array.from(document.forms)) f.submit = jest.fn();
   setup?.();
-  new Function(buildInjection(page, values)!)();
+  new Function(buildInjection(page, injected)!)();
   return posted;
 }
 
@@ -120,6 +121,39 @@ describe("buildInjection on /select_product", () => {
     expect(document.forms[0].submit).toHaveBeenCalledTimes(1);
     expect(posted).toEqual([
       { type: "autofill", page: "select_product", result: "applied" },
+    ]);
+  });
+  test("submits the form that contains #guestcode, not forms[0]", () => {
+    const decoy = '<form id="decoy" action="/search"><input id="q"></form>';
+    const posted = runInjection(
+      decoy + fixture("select_product.html"),
+      "select_product",
+    );
+    const guestForm = (document.getElementById("guestcode") as HTMLInputElement)
+      .form!;
+    expect(document.forms[0].id).toBe("decoy");
+    expect(document.forms[0].submit).not.toHaveBeenCalled();
+    expect(guestForm.submit).toHaveBeenCalledTimes(1);
+    expect(posted).toEqual([
+      { type: "autofill", page: "select_product", result: "applied" },
+    ]);
+  });
+  test("with an empty guest code fills the rest, never submits, posts skipped", () => {
+    const posted = runInjection(
+      fixture("select_product.html"),
+      "select_product",
+      undefined,
+      { ...values, guestCode: "" },
+    );
+    expect((document.getElementById("mobile") as HTMLInputElement).value).toBe(
+      "4045550199",
+    );
+    expect(
+      (document.getElementById("guestcode") as HTMLInputElement).value,
+    ).toBe("");
+    expect(document.forms[0].submit).not.toHaveBeenCalled();
+    expect(posted).toEqual([
+      { type: "autofill", page: "select_product", result: "skipped" },
     ]);
   });
 });

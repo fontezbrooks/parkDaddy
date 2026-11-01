@@ -6,6 +6,11 @@ export const TOKEN_WINDOW_MS = 2 * 60 * 1000;
 
 const GUEST_CODE_PATTERN = /^[A-Z0-9]{4,12}$/;
 
+export const GUEST_CODE_REQUIRED_MESSAGE =
+  "Add your ParkEaz guest code in Settings first.";
+export const GUEST_CODE_INVALID_MESSAGE =
+  "Guest code must be 4-12 letters or digits";
+
 export type RenewalSessionLike = {
   status: string;
   desiredEndTime: number;
@@ -86,6 +91,12 @@ export function normalizePlate(raw: string): string {
 export function normalizeGuestCode(raw: string): string | null {
   const code = raw.trim().toUpperCase();
   return GUEST_CODE_PATTERN.test(code) ? code : null;
+}
+
+export function hasGuestCode(
+  profile: { guestCode?: string } | null | undefined,
+): boolean {
+  return (profile?.guestCode ?? "").trim().length > 0;
 }
 
 export type CoverageSessionLike = {

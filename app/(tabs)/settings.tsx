@@ -17,7 +17,10 @@ import Constants from "expo-constants";
 import { colors, typography, spacing } from "@/src/theme";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
 import { FormField } from "@/src/components/FormField";
-import { normalizeGuestCode } from "@/src/domain/renewal";
+import {
+  GUEST_CODE_INVALID_MESSAGE,
+  normalizeGuestCode,
+} from "@/src/domain/renewal";
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
@@ -41,9 +44,14 @@ export default function SettingsScreen() {
 
   const saveGuestCode = async () => {
     if (guestCode.trim() === "") return;
+    const normalized = normalizeGuestCode(guestCode);
+    if (normalized === null) {
+      setGuestCodeError(GUEST_CODE_INVALID_MESSAGE);
+      return;
+    }
     try {
-      await updateGuestCode({ guestCode });
-      setGuestCode(normalizeGuestCode(guestCode) ?? guestCode);
+      await updateGuestCode({ guestCode: normalized });
+      setGuestCode(normalized);
       setGuestCodeError("");
     } catch (err: unknown) {
       setGuestCodeError(

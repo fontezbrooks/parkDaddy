@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { AutofillValues } from "@/src/parkeaz/pages";
 import { parseRenewParams } from "@/src/parkeaz/renewFlow";
 import { RenewScreen } from "@/src/components/renew/RenewScreen";
+import { hasGuestCode } from "@/src/domain/renewal";
 import { colors } from "@/src/theme";
 
 type ActiveSession = NonNullable<
@@ -47,6 +48,8 @@ export default function RenewRoute() {
       </View>
     );
   }
+  // Without a guest code the form cannot submit; send the user to add it.
+  if (!hasGuestCode(profile)) return <Redirect href="/(tabs)/settings" />;
   if (!session || session._id !== sessionId || !values) {
     return <Redirect href="/(tabs)" />;
   }

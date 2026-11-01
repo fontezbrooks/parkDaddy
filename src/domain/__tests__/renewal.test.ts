@@ -7,6 +7,7 @@ import {
   normalizePlate,
   normalizeGuestCode,
   coverageEndFor,
+  hasGuestCode,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
 } from "../renewal";
@@ -180,3 +181,17 @@ describe("coverageEndFor", () => {
     ).toBe(100);
   });
 });
+
+describe("hasGuestCode", () => {
+  test.each([
+    [undefined, false],
+    [null, false],
+    [{}, false],
+    [{ guestCode: "" }, false],
+    [{ guestCode: "   " }, false],
+    [{ guestCode: "ABCD12" }, true],
+  ])("%p -> %p", (profile, expected) => {
+    expect(hasGuestCode(profile)).toBe(expected);
+  });
+});
+
