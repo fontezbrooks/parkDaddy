@@ -16,6 +16,7 @@ import { router } from "expo-router";
 import { colors, typography, spacing } from "@/src/theme";
 import { GradientButton } from "@/src/components/GradientButton";
 import { FormField } from "@/src/components/FormField";
+import { normalizeGuestCode } from "@/src/domain/renewal";
 
 export default function ProfileSetupScreen() {
   const { user, isLoaded } = useUser();
@@ -64,6 +65,12 @@ export default function ProfileSetupScreen() {
       );
       return;
     }
+    const trimmedCode = guestCode.trim();
+    const normalizedCode = normalizeGuestCode(trimmedCode);
+    if (trimmedCode !== "" && normalizedCode === null) {
+      setGuestCodeError("Guest code must be 4-12 letters or digits");
+      return;
+    }
     setLoading(true);
     setError("");
     setGuestCodeError("");
@@ -78,9 +85,9 @@ export default function ProfileSetupScreen() {
       return;
     }
 
-    if (guestCode.trim() !== "") {
+    if (normalizedCode !== null) {
       try {
-        await updateGuestCode({ guestCode });
+        await updateGuestCode({ guestCode: normalizedCode });
       } catch (err: unknown) {
         setGuestCodeError(
           err instanceof Error ? err.message : "Couldn't save your guest code.",
