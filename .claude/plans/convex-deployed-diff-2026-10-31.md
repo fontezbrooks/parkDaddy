@@ -49,4 +49,8 @@ Since ParkEaz added the CAPTCHA, every production renewal attempt logs
 `FAILED_TO_EXTRACT_PARKID`, then `SUCCESS` with `parkId: unknown`, and
 `renewal:saveResult` keeps the session `active`. Users are shown as covered
 while unregistered. Task 4's rewrite replaces this path entirely; the
-`sweep` migration normalizes any such session on first run.
+`sweep` migration catches these sessions: an `active` session with a
+future `lastParkEnd` whose `currentParkId` is `unknown`, or that has no
+`renewalLogs` row with `source: "client"`, gets `lastParkEnd` and
+`lapsedAt` set to now and one lapse push (`notifications.sendLapsePush`).
+No due push is scheduled; the user re-registers from the app.

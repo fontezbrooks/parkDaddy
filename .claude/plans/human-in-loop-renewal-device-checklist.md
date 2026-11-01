@@ -38,7 +38,7 @@ Tick the box only on pass. On fail, leave it unticked and write the device, OS, 
   - Result:
   - Notes:
 - [ ] **AC-7** `convex/parkeaz.ts` is gone; `grep -r parkeaz.com convex/` returns only comments; deploy succeeds against the recovered production source.
-  - How: On the dev deployment (`npx convex dev --once` already run): confirm `convex/parkeaz.ts` is absent, run `grep -r "parkeaz.com" convex/` and confirm only comments match, and confirm the Functions list in the dev dashboard has no parkeaz, `renewal:tick`, `sessions:retry`, or `users:updateMode`. Production deploy happens in release Step 5, not here.
+  - How: On the dev deployment (`npx convex dev --once` already run): confirm `convex/parkeaz.ts` is absent, run `grep -r "parkeaz.com" convex/` and confirm only comments match, and confirm the Functions list in the dev dashboard has no parkeaz, `renewal:tick`, `sessions:retry`, or `users:updateMode`. Production deploy happens in Release order step 1, not here.
   - Result:
   - Notes:
 - [ ] **AC-8** At `desiredEndTime` the session completes and no due or lapse push fires afterward.
@@ -53,6 +53,17 @@ Tick the box only on pass. On fail, leave it unticked and write the device, OS, 
   - How: Run `npx jest` locally and confirm the CI run is green.
   - Result:
   - Notes:
+
+## Release order
+
+Run these in order, only after the checklist above is complete. This section is the release sequence, not a checklist item.
+
+1. `npx convex deploy` (production), only after AC-1, AC-2, AC-3, AC-7, and AC-8 pass on the dev deployment.
+2. Immediately run `npx convex run cronHandlers:sweep --prod`. This normalizes legacy sessions now instead of waiting up to 30 minutes for the cron: sessions recorded by the old server (parkId `unknown`, or no client-recorded registration) with a future `lastParkEnd` are marked lapsed now and get one lapse push.
+3. iOS: submit 3.3.0 for review and release it manually once approved.
+4. Android: upload the AAB per `docs/google-play-submission.md`.
+
+Note: after step 1, 3.2.0 clients cannot register (the server-side registration they call is gone) until they update to 3.3.0. Keep the gap between step 1 and steps 3 and 4 short.
 
 ## Reviewer carry-forwards
 
