@@ -43,9 +43,10 @@ export function detectPage(url: string): ParkEazPage {
 
 // Shared prelude: helpers + required-element check. Plain ES5 on purpose.
 const SCRIPT_PRELUDE = `
-  var V = __VALUES__;
+  var CFG = __CONFIG__;
+  var V = CFG.values;
   function post(result) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "autofill", page: "__PAGE__", result: result }));
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "autofill", page: CFG.page, result: result }));
   }
   function byId(id) { return document.getElementById(id); }
   function fire(el, type) {
@@ -67,7 +68,7 @@ const SCRIPT_PRELUDE = `
 
 const PAID_BODY = `
   if (!hasAll(["zone", "plate", "parktermsagreed", "selecttime"])) { post("skipped"); return; }
-  setValue("zone", "__ZONE__");
+  setValue("zone", CFG.zone);
   setValue("plate", V.plate);
   var terms = byId("parktermsagreed");
   terms.checked = true;
@@ -101,11 +102,9 @@ export function buildInjection(
 ): string | null {
   const body = PAGE_BODIES[page];
   if (!body) return null;
-  const prelude = SCRIPT_PRELUDE.replace("__VALUES__", () =>
-    JSON.stringify(values),
-  ).replace("__PAGE__", page);
-  const code = body.replace("__ZONE__", ZONE);
-  return `(function () {${prelude}${code}})(); true;`;
+  const config = JSON.stringify({ values, page, zone: ZONE });
+  const prelude = SCRIPT_PRELUDE.replace("__CONFIG__", () => config);
+  return `(function () {${prelude}${body}})(); true;`;
 }
 
 export const SUCCESS_PROBE_SCRIPT = `(function () {

@@ -90,6 +90,21 @@ describe("buildInjection on /paid", () => {
   });
 });
 
+test("values containing placeholder tokens do not corrupt the script", () => {
+  document.documentElement.innerHTML = fixture("paid.html");
+  const posted: unknown[] = [];
+  (window as any).ReactNativeWebView = {
+    postMessage: (m: string) => posted.push(JSON.parse(m)),
+  };
+  new Function(buildInjection("paid", { ...values, plate: "__PAGE__" })!)();
+  expect((document.getElementById("plate") as HTMLInputElement).value).toBe(
+    "__PAGE__",
+  );
+  expect(posted).toEqual([
+    { type: "autofill", page: "paid", result: "applied" },
+  ]);
+});
+
 describe("buildInjection on /select_product", () => {
   test("fills contact fields and guest code and submits the form", () => {
     const posted = runInjection(
@@ -124,6 +139,24 @@ describe("parsePageParkEnd", () => {
     );
     expect(source).toBe("page");
     expect(new Date(parkEnd).toISOString()).toBe("2026-11-01T01:07:15.000Z"); // 21:07:15 EDT
+  });
+  test.each([
+    ["Parking valid until 2027-01-15 12:00:00", "2027-01-15T17:00:00.000Z"],
+    ["Parking valid until 2027-03-14 01:30:00", "2027-03-14T06:30:00.000Z"],
+    ["Parking valid until 2027-03-14 03:30:00", "2027-03-14T07:30:00.000Z"],
+  ])("reads %s with the correct EST/EDT offset", (text, iso) => {
+    const result = parsePageParkEnd(text, now);
+    expect(result.source).toBe("page");
+    expect(new Date(result.parkEnd).toISOString()).toBe(iso);
+  });
+  test.each([
+    "valid until 12 noon 2026-10-31 21:07:15",
+    "Receipt 2026-10-31 21:07:15",
+  ])("falls back for %s", (text) => {
+    expect(parsePageParkEnd(text, now)).toEqual({
+      parkEnd: now + 2 * 3600_000,
+      source: "fallback",
+    });
   });
   test("falls back to now + 2h when no time is present", () => {
     expect(parsePageParkEnd("Thanks for parking", now)).toEqual({
