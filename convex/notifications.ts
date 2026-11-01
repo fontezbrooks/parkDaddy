@@ -9,7 +9,7 @@ export const sendExpiryWarning = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return;
-    if (!["active", "renewing"].includes(session.status)) return;
+    if (session.status !== "active") return;
 
     const user = await ctx.db.get(session.userId);
     if (!user?.notifyOnExpiry) return;
@@ -17,9 +17,8 @@ export const sendExpiryWarning = internalMutation({
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
       title: "Parking expires in 15 min",
-      body: `Extend parking for ${session.plate}?`,
+      body: `Add 24 more hours for ${session.plate}?`,
       data: { route: "/extend-duration", sessionId: args.sessionId },
-      categoryIdentifier: "extend_24h",
     });
   },
 });
@@ -42,70 +41,32 @@ export const sendSessionEnded = internalMutation({
   },
 });
 
-// Extended Stay safety net: weekly "still parked?" check-in.
-// Always reschedules the next link even if the user has opted out of expiry
-// notifications, so the chain survives a pref change and continues to catch
-// forgotten long-term sessions.
-const WEEKLY_CHECK_IN_MS = 7 * 24 * 60 * 60 * 1000;
-
-export const sendWeeklyCheckIn = internalMutation({
+export const sendDuePush = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
-    if (!["active", "renewing"].includes(session.status)) return;
-
-    const user = await ctx.db.get(session.userId);
-    if (user?.notifyOnExpiry) {
-      await ctx.scheduler.runAfter(0, internal.notifications.push, {
-        userId: session.userId,
-        title: "Still parked?",
-        body: `Confirm you're still using parkDaddy for ${session.plate}.`,
-        data: { route: "/(tabs)", sessionId: args.sessionId },
-      });
-    }
-
-    const nextId = await ctx.scheduler.runAt(
-      Date.now() + WEEKLY_CHECK_IN_MS,
-      internal.notifications.sendWeeklyCheckIn,
-      { sessionId: args.sessionId },
-    );
-    await ctx.db.patch(args.sessionId, { weeklyCheckInId: nextId });
-  },
-});
-
-// Renewal/urgent failures bypass user notification prefs: missing one means
-// the guest's car gets booted ($250+). Treat as safety-critical, not opt-in.
-export const sendRenewalFailure = internalMutation({
-  args: { sessionId: v.id("sessions") },
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
+    if (!session || session.status !== "active") return;
 
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
-      title: "Parking renewal failed",
-      body: `Renewal failed for ${session.plate}. Open app to retry.`,
-      data: { route: "/(tabs)", sessionId: args.sessionId },
+      title: `Renew parking for ${session.plate}`,
+      body: `Tap to keep ${session.plate} registered. Takes one tap.`,
+      data: { route: "/renew", sessionId: args.sessionId },
     });
   },
 });
 
-export const sendUrgentFailure = internalMutation({
+export const sendLapsePush = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
-
-    const minutesLeft = session.lastParkEnd
-      ? Math.max(0, Math.round((session.lastParkEnd - Date.now()) / 60000))
-      : 0;
+    if (!session || session.status !== "active") return;
 
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
-      title: `URGENT: Parking expires in ${minutesLeft} min!`,
-      body: `Renewal failed for ${session.plate} and registration expires soon!`,
-      data: { route: "/(tabs)", sessionId: args.sessionId },
+      title: `${session.plate} is unregistered`,
+      body: "Open parkDaddy to re-register.",
+      data: { route: "/renew", sessionId: args.sessionId },
     });
   },
 });

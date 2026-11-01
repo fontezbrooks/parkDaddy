@@ -1,45 +1,83 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
+import { DAILY_DURATION_MS } from "../src/domain/renewal";
+import { cancelScheduled } from "./renewal";
 
-const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+const LEGACY_STATUSES = ["renewing", "failed"];
 
-export const safetyNetScan = internalMutation({
+// (a) Legacy renewing/failed sessions return to "active"; their old
+// renewal.tick (now deleted) is cancelled.
+async function reactivateLegacy(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+): Promise<void> {
+  await cancelScheduled(ctx, session.scheduledFunctionId);
+  await ctx.db.patch(session._id, {
+    status: "active",
+    retryCount: 0,
+    lastError: undefined,
+    renewingAt: undefined,
+    scheduledFunctionId: undefined,
+  });
+}
+
+// (b) Extended Stay sessions become daily sessions ending 24h from now.
+async function migrateExtended(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  now: number,
+): Promise<void> {
+  await cancelScheduled(ctx, session.weeklyCheckInId);
+  await cancelScheduled(ctx, session.scheduledFunctionId);
+  const desiredEndTime = now + DAILY_DURATION_MS;
+  const completionId = await ctx.scheduler.runAt(
+    desiredEndTime,
+    internal.renewal.completeAtDesiredEnd,
+    { sessionId: session._id },
+  );
+  await ctx.db.patch(session._id, {
+    desiredEndTime,
+    weeklyCheckInId: undefined,
+    scheduledFunctionId: undefined,
+    migratedFromExtendedAt: now,
+    completionId,
+  });
+}
+
+// (c) Sessions already past their end complete now.
+async function completeOverdue(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+): Promise<void> {
+  await cancelScheduled(ctx, session.scheduledFunctionId);
+  await ctx.scheduler.runAfter(0, internal.renewal.completeAtDesiredEnd, {
+    sessionId: session._id,
+  });
+}
+
+export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
 
-    // Find active sessions with overdue renewals
-    const overdue = await ctx.db
-      .query("sessions")
-      .withIndex("by_next_renewal", (q) =>
-        q.eq("status", "active").lt("nextRenewalAt", now),
-      )
-      .collect();
-
-    for (const session of overdue) {
-      if (
-        session.nextRenewalAt &&
-        now - session.nextRenewalAt > STUCK_THRESHOLD_MS
-      ) {
-        await ctx.scheduler.runAfter(0, internal.renewal.tick, {
-          sessionId: session._id,
-        });
-      }
+    for (const status of LEGACY_STATUSES) {
+      const legacy = await ctx.db
+        .query("sessions")
+        .withIndex("by_status", (q) => q.eq("status", status))
+        .collect();
+      for (const session of legacy) await reactivateLegacy(ctx, session);
     }
 
-    // Check renewing sessions stuck based on renewingAt timestamp
-    const stuck = await ctx.db
+    const active = await ctx.db
       .query("sessions")
-      .withIndex("by_status", (q) => q.eq("status", "renewing"))
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
-
-    for (const session of stuck) {
-      if (!session.renewingAt) continue;
-      if (now - session.renewingAt > STUCK_THRESHOLD_MS) {
-        await ctx.db.patch(session._id, { status: "active" });
-        await ctx.scheduler.runAfter(0, internal.renewal.tick, {
-          sessionId: session._id,
-        });
+    for (const session of active) {
+      if (session.desiredEndTime === Number.MAX_SAFE_INTEGER) {
+        await migrateExtended(ctx, session, now);
+      } else if (session.desiredEndTime <= now) {
+        await completeOverdue(ctx, session);
       }
     }
   },

@@ -1,6 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  computeDueAt,
+  DAILY_DURATION_MS,
+  EXPIRY_WARNING_MS,
+  isDuplicateRegistration,
+  normalizePlate,
+} from "../src/domain/renewal";
+import { cancelScheduled, scheduleRegistrationPushes } from "./renewal";
 
 export const getActive = query({
   args: {},
@@ -14,7 +23,7 @@ export const getActive = query({
       .unique();
     if (!user) return null;
 
-    const activeStatuses = ["active", "renewing", "failed"];
+    const activeStatuses = ["active"];
     for (const status of activeStatuses) {
       const session = await ctx.db
         .query("sessions")
@@ -137,9 +146,80 @@ export const getDetail = query({
   },
 });
 
-const DAILY_DURATION_MS = 24 * 60 * 60 * 1000;
-const EXPIRY_WARNING_MS = 15 * 60 * 1000;
-const WEEKLY_CHECK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+const LIVE_STATUSES = ["active", "renewing", "failed"];
+const PLATE_PATTERN = /^[A-Z0-9]{1,8}[-\s]?[A-Z0-9]{0,5}$/;
+
+async function requireUser(ctx: MutationCtx): Promise<Doc<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+    .unique();
+  if (!user) throw new Error("Profile not found. Complete setup first.");
+  return user;
+}
+
+async function requireOwnedSession(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+): Promise<{ user: Doc<"users">; session: Doc<"sessions"> }> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+
+  const session = await ctx.db.get(sessionId);
+  if (!session) throw new Error("Session not found");
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+    .unique();
+  if (!user || session.userId !== user._id) {
+    throw new Error("Not authorized");
+  }
+  return { user, session };
+}
+
+async function hasLiveSession(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<boolean> {
+  for (const status of LIVE_STATUSES) {
+    const existing = await ctx.db
+      .query("sessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("status", status),
+      )
+      .first();
+    if (existing) return true;
+  }
+  return false;
+}
+
+async function upsertVehicle(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  plate: string,
+  details: { makeModel?: string; color?: string },
+): Promise<Id<"vehicles">> {
+  const vehicles = await ctx.db
+    .query("vehicles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const existing = vehicles.find((vehicle) => vehicle.plate === plate);
+  if (existing) {
+    await ctx.db.patch(existing._id, { lastUsedAt: Date.now() });
+    return existing._id;
+  }
+  return await ctx.db.insert("vehicles", {
+    userId,
+    plate,
+    makeModel: details.makeModel,
+    color: details.color,
+    lastUsedAt: Date.now(),
+  });
+}
 
 export const create = mutation({
   args: {
@@ -148,62 +228,18 @@ export const create = mutation({
     color: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    const user = await requireUser(ctx);
 
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    if (!user) throw new Error("Profile not found. Complete setup first.");
-
-    const plateRegex = /^[A-Z0-9]{1,8}[-\s]?[A-Z0-9]{0,5}$/;
-    if (!plateRegex.test(args.plate.toUpperCase().trim())) {
+    if (!PLATE_PATTERN.test(args.plate.toUpperCase().trim())) {
       throw new Error("Invalid license plate format");
     }
-
-    // Check for existing active session
-    for (const status of ["active", "renewing", "failed"]) {
-      const existing = await ctx.db
-        .query("sessions")
-        .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status),
-        )
-        .first();
-      if (existing) {
-        throw new Error("An active parking session already exists.");
-      }
+    if (await hasLiveSession(ctx, user._id)) {
+      throw new Error("An active parking session already exists.");
     }
 
-    // Upsert vehicle
-    const plate = args.plate.toUpperCase();
-    const existingVehicle = (
-      await ctx.db
-        .query("vehicles")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .collect()
-    ).find((v) => v.plate === plate);
-
-    let vehicleId;
-    if (existingVehicle) {
-      await ctx.db.patch(existingVehicle._id, { lastUsedAt: Date.now() });
-      vehicleId = existingVehicle._id;
-    } else {
-      vehicleId = await ctx.db.insert("vehicles", {
-        userId: user._id,
-        plate,
-        makeModel: args.makeModel,
-        color: args.color,
-        lastUsedAt: Date.now(),
-      });
-    }
-
-    const mode = user.mode ?? "daily";
-    const now = Date.now();
-    // Extended Stay uses MAX_SAFE_INTEGER so the renewal cron's
-    // `lastParkEnd >= desiredEndTime` short-circuit never fires.
-    const desiredEndTime =
-      mode === "extended" ? Number.MAX_SAFE_INTEGER : now + DAILY_DURATION_MS;
+    const plate = normalizePlate(args.plate);
+    const vehicleId = await upsertVehicle(ctx, user._id, plate, args);
+    const desiredEndTime = Date.now() + DAILY_DURATION_MS;
 
     const sessionId = await ctx.db.insert("sessions", {
       userId: user._id,
@@ -216,36 +252,61 @@ export const create = mutation({
       desiredEndTime,
       status: "active",
       retryCount: 0,
-      mode,
     });
+    await ctx.db.insert("renewalLogs", { sessionId, action: "initial" });
 
-    // Log initial action
-    await ctx.db.insert("renewalLogs", {
-      sessionId,
-      action: "initial",
-    });
-
-    // Trigger first renewal immediately
-    await ctx.scheduler.runAfter(0, internal.renewal.tick, { sessionId });
-
-    if (mode === "daily") {
-      const warningTime = desiredEndTime - EXPIRY_WARNING_MS;
-      const expiryWarningId = await ctx.scheduler.runAt(
-        warningTime,
-        internal.notifications.sendExpiryWarning,
-        { sessionId },
-      );
-      await ctx.db.patch(sessionId, { expiryWarningId });
-    } else {
-      const weeklyCheckInId = await ctx.scheduler.runAt(
-        now + WEEKLY_CHECK_IN_MS,
-        internal.notifications.sendWeeklyCheckIn,
-        { sessionId },
-      );
-      await ctx.db.patch(sessionId, { weeklyCheckInId });
-    }
+    const expiryWarningId = await ctx.scheduler.runAt(
+      desiredEndTime - EXPIRY_WARNING_MS,
+      internal.notifications.sendExpiryWarning,
+      { sessionId },
+    );
+    const completionId = await ctx.scheduler.runAt(
+      desiredEndTime,
+      internal.renewal.completeAtDesiredEnd,
+      { sessionId },
+    );
+    await ctx.db.patch(sessionId, { expiryWarningId, completionId });
 
     return sessionId;
+  },
+});
+
+export const recordRegistration = mutation({
+  args: {
+    sessionId: v.id("sessions"),
+    parkId: v.string(),
+    parkStart: v.number(),
+    parkEnd: v.number(),
+    parkEndSource: v.union(v.literal("page"), v.literal("fallback")),
+  },
+  handler: async (ctx, args) => {
+    const { session } = await requireOwnedSession(ctx, args.sessionId);
+    if (session.status !== "active") throw new Error("Session is not active");
+    if (!args.parkId.trim() || args.parkEnd <= args.parkStart) {
+      throw new Error("Invalid registration");
+    }
+    if (isDuplicateRegistration(session, args.parkId)) return;
+
+    await ctx.db.insert("renewalLogs", {
+      sessionId: args.sessionId,
+      action: "registered",
+      parkId: args.parkId,
+      parkStart: args.parkStart,
+      parkEnd: args.parkEnd,
+      source: "client",
+      parkEndSource: args.parkEndSource,
+    });
+
+    const ids = await scheduleRegistrationPushes(ctx, session, args.parkEnd);
+    await ctx.db.patch(args.sessionId, {
+      currentParkId: args.parkId,
+      lastParkStart: args.parkStart,
+      lastParkEnd: args.parkEnd,
+      dueAt: computeDueAt(args.parkEnd),
+      lapsedAt: undefined,
+      nextRenewalAt: undefined,
+      ...ids,
+    });
   },
 });
 
@@ -254,66 +315,35 @@ export const extend = mutation({
     sessionId: v.id("sessions"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    if (!user || session.userId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (!["active", "renewing", "failed"].includes(session.status)) {
+    const { session } = await requireOwnedSession(ctx, args.sessionId);
+    if (!LIVE_STATUSES.includes(session.status)) {
       throw new Error("Session is not active");
-    }
-
-    // Extended Stay sessions don't expose Extend — no boundary to push.
-    if ((session.mode ?? "daily") === "extended") {
-      throw new Error("Extended Stay sessions auto-renew; nothing to extend.");
     }
 
     const newDesiredEndTime = session.desiredEndTime + DAILY_DURATION_MS;
 
-    // Cancel existing expiry warning if scheduled
-    if (session.expiryWarningId) {
-      try {
-        await ctx.scheduler.cancel(session.expiryWarningId);
-      } catch {
-        // Already fired or cancelled
-      }
-    }
-
-    // Schedule new expiry warning 15 min before new end
+    await cancelScheduled(ctx, session.expiryWarningId);
     const warningTime = newDesiredEndTime - EXPIRY_WARNING_MS;
-    let expiryWarningId;
-    if (warningTime > Date.now()) {
-      expiryWarningId = await ctx.scheduler.runAt(
-        warningTime,
-        internal.notifications.sendExpiryWarning,
-        { sessionId: args.sessionId },
-      );
-    }
+    const expiryWarningId =
+      warningTime > Date.now()
+        ? await ctx.scheduler.runAt(
+            warningTime,
+            internal.notifications.sendExpiryWarning,
+            { sessionId: args.sessionId },
+          )
+        : undefined;
 
-    // Reset retryCount so an extend-from-failed gets a fresh retry chain
-    // rather than instantly re-failing once and giving up.
+    await cancelScheduled(ctx, session.completionId);
+    const completionId = await ctx.scheduler.runAt(
+      newDesiredEndTime,
+      internal.renewal.completeAtDesiredEnd,
+      { sessionId: args.sessionId },
+    );
+
     await ctx.db.patch(args.sessionId, {
       desiredEndTime: newDesiredEndTime,
       expiryWarningId,
-      retryCount: 0,
-      lastError: undefined,
-    });
-
-    // Trigger an immediate parkeaz top-up matching the initial-register path.
-    // Per FR-5: tapping Extend should refresh coverage now, not wait for the
-    // next scheduled tick. renewal.tick handles the active/renewing/failed
-    // status transitions and the actual parkeaz call.
-    await ctx.scheduler.runAfter(0, internal.renewal.tick, {
-      sessionId: args.sessionId,
+      completionId,
     });
   },
 });
@@ -321,90 +351,28 @@ export const extend = mutation({
 export const cancel = mutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
+    const { session } = await requireOwnedSession(ctx, args.sessionId);
 
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    if (!user || session.userId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    // Cancel scheduled renewal
-    if (session.scheduledFunctionId) {
-      try {
-        await ctx.scheduler.cancel(session.scheduledFunctionId);
-      } catch {
-        // Already fired
-      }
-    }
-
-    // Cancel expiry warning
-    if (session.expiryWarningId) {
-      try {
-        await ctx.scheduler.cancel(session.expiryWarningId);
-      } catch {
-        // Already fired
-      }
-    }
-
-    // Cancel weekly check-in (Extended Stay sessions only)
-    if (session.weeklyCheckInId) {
-      try {
-        await ctx.scheduler.cancel(session.weeklyCheckInId);
-      } catch {
-        // Already fired
-      }
-    }
+    await cancelScheduled(ctx, session.scheduledFunctionId);
+    await cancelScheduled(ctx, session.expiryWarningId);
+    await cancelScheduled(ctx, session.weeklyCheckInId);
+    await cancelScheduled(ctx, session.duePushId);
+    await cancelScheduled(ctx, session.lapsePushId);
+    await cancelScheduled(ctx, session.completionId);
 
     await ctx.db.patch(args.sessionId, {
       status: "cancelled",
       scheduledFunctionId: undefined,
       expiryWarningId: undefined,
       weeklyCheckInId: undefined,
+      duePushId: undefined,
+      lapsePushId: undefined,
+      completionId: undefined,
     });
 
     await ctx.db.insert("renewalLogs", {
       sessionId: args.sessionId,
       action: "cancelled",
-    });
-  },
-});
-
-export const retry = mutation({
-  args: { sessionId: v.id("sessions") },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    if (!user || session.userId !== user._id) {
-      throw new Error("Not authorized");
-    }
-
-    if (session.status !== "failed") {
-      throw new Error("Session is not in failed state");
-    }
-
-    await ctx.db.patch(args.sessionId, {
-      status: "active",
-      retryCount: 0,
-      lastError: undefined,
-    });
-
-    await ctx.scheduler.runAfter(0, internal.renewal.tick, {
-      sessionId: args.sessionId,
     });
   },
 });
