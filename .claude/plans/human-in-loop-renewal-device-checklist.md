@@ -9,6 +9,8 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
 | iOS      |          |      |        |     |
 | Android  |          |      |        |     |
 
+Tick the box only on pass. On fail, leave it unticked and write the device, OS, build id, and what happened in Notes.
+
 ## Acceptance criteria
 
 - [ ] **AC-1** Fresh install with a guest-code profile, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and guest code visible, one tap registers, Home shows Registered until now+2h within 15 s.
@@ -20,7 +22,7 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
   - Result:
   - Notes:
 - [ ] **AC-3** Ignore the due push: at `lastParkEnd` one lapse push arrives, Home shows Unregistered since HH:MM, no further pushes for 2 hours; renewing clears the gap and schedules the next due push.
-  - How: Start a session, ignore the due push, wait past `lastParkEnd` (or patch it on dev), then renew from Home.
+  - How: Start a session, ignore the due push, wait past `lastParkEnd` (or patch it on dev), then renew from Home. Expect exactly one lapse push at `lastParkEnd`, Home showing "Unregistered since HH:MM", and no further pushes for the next 2 hours; then renew and confirm the gap clears and a new due push is scheduled.
   - Result:
   - Notes:
 - [ ] **AC-4** Forced CAPTCHA challenge (fresh device or VPN): challenge is visible and solvable inside the WebView and the flow completes.
@@ -36,7 +38,7 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
   - Result:
   - Notes:
 - [ ] **AC-7** `convex/parkeaz.ts` is gone; `grep -r parkeaz.com convex/` returns only comments; deploy succeeds against the recovered production source.
-  - How: Run `grep -r parkeaz.com convex/` and `npx convex deploy` against the recovered production source.
+  - How: On the dev deployment (`npx convex dev --once` already run): confirm `convex/parkeaz.ts` is absent, run `grep -r "parkeaz.com" convex/` and confirm only comments match, and confirm the Functions list in the dev dashboard has no parkeaz, `renewal:tick`, `sessions:retry`, or `users:updateMode`. Production deploy happens in release Step 5, not here.
   - Result:
   - Notes:
 - [ ] **AC-8** At `desiredEndTime` the session completes and no due or lapse push fires afterward.
@@ -44,7 +46,7 @@ Spec: `.claude/plans/human-in-loop-renewal-design.md` (section 9 and 10). Run AC
   - Result:
   - Notes:
 - [ ] **AC-9** Sentry shows `renew_result` breadcrumbs with no guest code, email, or phone values.
-  - How: After an AC-1 run, open the Sentry issue/breadcrumb view and inspect the `renew_result` entries.
+  - How: Complete one renewal, then trigger a `parkeaz_error` (e.g. submit the same plate twice) so an event exists; open that event in Sentry and confirm `renew_page`/`renew_result` breadcrumbs carry only pathname, autofill, result, elapsedMs: no plate, email, phone, or guest code.
   - Result:
   - Notes:
 - [ ] **AC-10** Unit tests pass in CI: derived state boundaries, `recordRegistration` scheduling math, injected-script page detection against captured fixtures (`/paid`, `/select_product`, `/checkout`, `/successful_transaction`, broken-selector).
