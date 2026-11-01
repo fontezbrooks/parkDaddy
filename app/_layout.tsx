@@ -28,6 +28,7 @@ import * as Sentry from "@sentry/react-native";
 import { WhatsNewSheet } from "@/src/components/WhatsNewSheet";
 import { AnimatedSplash } from "@/src/components/splash/AnimatedSplash";
 import { useAppReady } from "@/src/hooks/useAppReady";
+import { parseRenewParams } from "@/src/parkeaz/renewFlow";
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
@@ -89,6 +90,7 @@ const ALLOWED_NOTIFICATION_ROUTES = [
   "/(tabs)",
   "/extend-duration",
   "/confirm-stop",
+  "/renew",
 ] as const;
 
 function isAllowedRoute(
@@ -109,10 +111,15 @@ function useNotificationObserver() {
           return;
         }
 
-        const url = response.notification.request.content.data?.route;
-        if (typeof url === "string" && isAllowedRoute(url)) {
-          router.push(url);
+        const data = response.notification.request.content.data ?? {};
+        const url = data.route;
+        if (typeof url !== "string" || !isAllowedRoute(url)) return;
+        if (url === "/renew") {
+          const sessionId = parseRenewParams(data) ?? "";
+          router.push(`/renew?sessionId=${encodeURIComponent(sessionId)}`);
+          return;
         }
+        router.push(url);
       },
     );
     return () => sub.remove();
@@ -146,6 +153,10 @@ function RootLayoutInner({
         <Stack.Screen
           name="extend-duration"
           options={{ headerShown: true, title: "Extend Parking" }}
+        />
+        <Stack.Screen
+          name="renew"
+          options={{ headerShown: true, title: "Renew Parking" }}
         />
         <Stack.Screen
           name="confirm-stop"

@@ -1,0 +1,234 @@
+import {
+  PARKEAZ_ORIGIN,
+  SUCCESS_PROBE_SCRIPT,
+  buildInjection,
+  detectPage,
+  parseErrorMessage,
+  parsePageParkEnd,
+  parseParkId,
+  type AutofillValues,
+  type ParkEazPage,
+} from "./pages";
+
+type Registration = {
+  parkId: string;
+  parkStart: number;
+  parkEnd: number;
+  parkEndSource: "page" | "fallback";
+};
+
+export type RenewFlowState =
+  | { step: "loading" }
+  | {
+      step: "page";
+      page: ParkEazPage;
+      autofill: "pending" | "applied" | "skipped";
+    }
+  | { step: "parkeaz_error"; message: string }
+  | { step: "load_error" }
+  | ({ step: "saving" } & Registration)
+  | ({ step: "save_failed" } & Registration)
+  | { step: "done" };
+
+export type RenewFlowEvent =
+  | { type: "navigated"; url: string }
+  | { type: "autofill"; page: ParkEazPage; result: "applied" | "skipped" }
+  | { type: "success_page"; url: string; text: string; now: number }
+  | { type: "load_error" }
+  | { type: "save_ok" }
+  | { type: "save_failed" }
+  | { type: "retry" };
+
+const MISSING_PARK_ID_MESSAGE =
+  "ParkEaz didn't show a confirmation number. Check your email before trying again.";
+
+// Once ParkEaz has confirmed a registration, page events must not discard it.
+function isRegistered(state: RenewFlowState): boolean {
+  return (
+    state.step === "saving" ||
+    state.step === "save_failed" ||
+    state.step === "done"
+  );
+}
+
+function onNavigated(state: RenewFlowState, url: string): RenewFlowState {
+  // load_error is sticky: onLoadEnd also fires after a failed load.
+  if (isRegistered(state) || state.step === "load_error") return state;
+  const message = parseErrorMessage(url);
+  if (message) return { step: "parkeaz_error", message };
+  return { step: "page", page: detectPage(url), autofill: "pending" };
+}
+
+function onAutofill(
+  state: RenewFlowState,
+  page: ParkEazPage,
+  result: "applied" | "skipped",
+): RenewFlowState {
+  if (state.step !== "page" || state.page !== page) return state;
+  return { ...state, autofill: result };
+}
+
+function onSuccessPage(
+  state: RenewFlowState,
+  event: { url: string; text: string; now: number },
+): RenewFlowState {
+  if (isRegistered(state)) return state;
+  const parkId = parseParkId(event.url);
+  if (!parkId)
+    return { step: "parkeaz_error", message: MISSING_PARK_ID_MESSAGE };
+  const { parkEnd, source } = parsePageParkEnd(event.text, event.now);
+  return {
+    step: "saving",
+    parkId,
+    parkStart: event.now,
+    parkEnd,
+    parkEndSource: source,
+  };
+}
+
+function onRetry(state: RenewFlowState): RenewFlowState {
+  if (state.step === "save_failed") return { ...state, step: "saving" };
+  if (state.step === "load_error" || state.step === "parkeaz_error") {
+    return { step: "loading" };
+  }
+  return state;
+}
+
+export function renewFlowReducer(
+  state: RenewFlowState,
+  event: RenewFlowEvent,
+): RenewFlowState {
+  switch (event.type) {
+    case "navigated":
+      return onNavigated(state, event.url);
+    case "autofill":
+      return onAutofill(state, event.page, event.result);
+    case "success_page":
+      return onSuccessPage(state, event);
+    case "load_error":
+      return isRegistered(state) ? state : { step: "load_error" };
+    case "save_ok":
+      return state.step === "saving" ? { step: "done" } : state;
+    case "save_failed":
+      return state.step === "saving"
+        ? { ...state, step: "save_failed" }
+        : state;
+    case "retry":
+      return onRetry(state);
+  }
+}
+
+function pageBannerText(
+  state: Extract<RenewFlowState, { step: "page" }>,
+): string {
+  if (state.page === "checkout") return "Tap Register To Park";
+  if (state.autofill === "skipped") {
+    return "ParkEaz changed their page. Fill it in by hand.";
+  }
+  if (state.page === "paid" || state.page === "select_product") {
+    return "Filling in your details…";
+  }
+  return "Loading ParkEaz…";
+}
+
+export function bannerText(state: RenewFlowState): string {
+  switch (state.step) {
+    case "loading":
+      return "Loading ParkEaz…";
+    case "page":
+      return pageBannerText(state);
+    case "parkeaz_error":
+      return state.message;
+    case "load_error":
+      return "Couldn't reach ParkEaz. Tap Retry.";
+    case "saving":
+      return "Saving…";
+    case "save_failed":
+      return `Registered with ParkEaz but we couldn't save it. Confirmation ${state.parkId}.`;
+    case "done":
+      return "Registered.";
+  }
+}
+
+export function parseRenewParams(
+  params: Record<string, unknown>,
+): string | null {
+  const { sessionId } = params;
+  return typeof sessionId === "string" && sessionId.length > 0
+    ? sessionId
+    : null;
+}
+
+export function isParkEazOrigin(url: string): boolean {
+  try {
+    return new URL(url).origin === PARKEAZ_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+// The only gate between user data and a page: nothing runs off ParkEaz's
+// origin, and a page carrying ErrorMessage is never auto-submitted again.
+export function injectionFor(
+  url: string,
+  values: AutofillValues,
+): string | null {
+  if (!isParkEazOrigin(url) || parseErrorMessage(url)) return null;
+  const page = detectPage(url);
+  if (page === "success") return SUCCESS_PROBE_SCRIPT;
+  return buildInjection(page, values);
+}
+
+const PAGES: readonly string[] = [
+  "paid",
+  "select_product",
+  "checkout",
+  "success",
+  "other",
+];
+
+function isPage(value: unknown): value is ParkEazPage {
+  return typeof value === "string" && PAGES.includes(value);
+}
+
+function isAutofillResult(value: unknown): value is "applied" | "skipped" {
+  return value === "applied" || value === "skipped";
+}
+
+function parseJsonObject(data: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(data);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseWebViewMessage(
+  data: string,
+  now: number,
+): RenewFlowEvent | null {
+  const msg = parseJsonObject(data);
+  if (!msg) return null;
+  if (msg.type === "autofill" && isPage(msg.page)) {
+    if (!isAutofillResult(msg.result)) return null;
+    return { type: "autofill", page: msg.page, result: msg.result };
+  }
+  if (msg.type === "success_page") {
+    if (typeof msg.url !== "string" || typeof msg.text !== "string") {
+      return null;
+    }
+    return { type: "success_page", url: msg.url, text: msg.text, now };
+  }
+  return null;
+}
+
+const FATAL_SAVE_ERRORS = ["Not authorized", "Session is not active"];
+
+// Retrying these cannot succeed: the session is foreign or already closed.
+export function isFatalSaveError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return FATAL_SAVE_ERRORS.some((text) => error.message.includes(text));
+}
