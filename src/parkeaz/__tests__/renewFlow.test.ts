@@ -7,6 +7,7 @@ import {
   isFatalSaveError,
   breadcrumbResultFor,
   shouldLoadRequest,
+  httpErrorEvent,
   type RenewFlowState,
 } from "../renewFlow";
 import { ConvexError } from "convex/values";
@@ -45,19 +46,21 @@ test("ErrorMessage in URL becomes parkeaz_error with decoded text", () => {
   ).toEqual({ step: "parkeaz_error", message: "Plate already registered" });
 });
 test("success page with parkid and parkend enters saving", () => {
+  const pageNow = Date.UTC(2026, 9, 31, 23, 0, 0); // 2h07m before 21:07:15 EDT
   const s = renewFlowReducer(
     { step: "page", page: "checkout", autofill: "pending" },
     {
       type: "success_page",
       url: "https://paid.parkeaz.com/successful_transaction?parkid=123456",
       text: "Parking valid until 2026-10-31 21:07:15",
-      now,
+      now: pageNow,
     },
   );
   expect(s).toMatchObject({
     step: "saving",
     parkId: "123456",
-    parkStart: now,
+    parkStart: pageNow,
+    parkEnd: Date.UTC(2026, 10, 1, 1, 7, 15),
     parkEndSource: "page",
   });
 });
@@ -215,6 +218,11 @@ describe("bannerText", () => {
       "Saving…",
     ],
     [{ step: "done" }, "Registered."],
+    [
+      { step: "page", page: "other", autofill: "pending" },
+      "Follow the steps on the page.",
+    ],
+    [{ step: "page", page: "success", autofill: "pending" }, "Confirming…"],
   ] as [RenewFlowState, string][])("%o -> %s", (state, text) => {
     expect(bannerText(state)).toBe(text);
   });
@@ -344,7 +352,7 @@ describe("shouldLoadRequest", () => {
     "https://recaptcha.net/recaptcha/api.js",
     "https://www.recaptcha.net/recaptcha/api.js",
   ])("allows top-frame %s", (url) => {
-    expect(shouldLoadRequest({ url, isTopFrame: true })).toBe("allow");
+    expect(shouldLoadRequest({ url, isTopFrame: true }, "ios")).toBe("allow");
   });
   test.each([
     "https://example.com",
@@ -352,19 +360,63 @@ describe("shouldLoadRequest", () => {
     "https://paid.parkeaz.com.evil.example/paid",
     "not a url",
   ])("opens top-frame %s externally", (url) => {
-    expect(shouldLoadRequest({ url, isTopFrame: true })).toBe("open_external");
+    expect(shouldLoadRequest({ url, isTopFrame: true }, "ios")).toBe(
+      "open_external",
+    );
   });
   test("allows sub-frame requests to any origin", () => {
     expect(
-      shouldLoadRequest({ url: "https://example.com", isTopFrame: false }),
+      shouldLoadRequest(
+        { url: "https://example.com", isTopFrame: false },
+        "ios",
+      ),
     ).toBe("allow");
   });
   test("allows requests without frame info (Android)", () => {
-    expect(shouldLoadRequest({ url: "https://example.com" })).toBe("allow");
-  });
-  test("allows about:blank", () => {
-    expect(shouldLoadRequest({ url: "about:blank", isTopFrame: true })).toBe(
+    expect(shouldLoadRequest({ url: "https://example.com" }, "ios")).toBe(
       "allow",
     );
+  });
+  test("on Android allows every request, even off-origin top-frame", () => {
+    expect(
+      shouldLoadRequest(
+        { url: "https://example.com", isTopFrame: true },
+        "android",
+      ),
+    ).toBe("allow");
+  });
+  test("allows about:blank", () => {
+    expect(
+      shouldLoadRequest({ url: "about:blank", isTopFrame: true }, "ios"),
+    ).toBe("allow");
+  });
+});
+
+describe("httpErrorEvent", () => {
+  test.each([500, 502, 503, 599])("%i is a load_error", (status) => {
+    expect(httpErrorEvent(status)).toEqual({ type: "load_error" });
+  });
+  test.each([200, 302, 404, 499])("%i is ignored", (status) => {
+    expect(httpErrorEvent(status)).toBeNull();
+  });
+  test("a 5xx on a ParkEaz page moves the reducer to load_error", () => {
+    const page: RenewFlowState = {
+      step: "page",
+      page: "paid",
+      autofill: "pending",
+    };
+    expect(renewFlowReducer(page, httpErrorEvent(503)!)).toEqual({
+      step: "load_error",
+    });
+  });
+  test("a 5xx after ParkEaz confirmed keeps the registration", () => {
+    const saving: RenewFlowState = {
+      step: "saving",
+      parkId: "1",
+      parkStart: 0,
+      parkEnd: 1,
+      parkEndSource: "page",
+    };
+    expect(renewFlowReducer(saving, httpErrorEvent(500)!)).toBe(saving);
   });
 });

@@ -129,7 +129,8 @@ function pageBannerText(
   if (state.page === "paid" || state.page === "select_product") {
     return "Filling in your details…";
   }
-  return "Loading ParkEaz…";
+  if (state.page === "success") return "Confirming…";
+  return "Follow the steps on the page.";
 }
 
 export function bannerText(state: RenewFlowState): string {
@@ -238,6 +239,13 @@ export function isFatalSaveError(error: unknown): boolean {
   return typeof code === "string" && FATAL_SAVE_CODES.includes(code);
 }
 
+const SERVER_ERROR_STATUS = 500;
+
+// A 5xx from ParkEaz leaves a dead page; 4xx pages are ParkEaz's own UI.
+export function httpErrorEvent(statusCode: number): RenewFlowEvent | null {
+  return statusCode >= SERVER_ERROR_STATUS ? { type: "load_error" } : null;
+}
+
 export type RenewResult = "success" | "parkeaz_error" | "load_error";
 
 export function breadcrumbResultFor(
@@ -265,10 +273,14 @@ function originOf(url: string): string | null {
   }
 }
 
-export function shouldLoadRequest(request: {
-  url: string;
-  isTopFrame?: boolean;
-}): "allow" | "open_external" {
+// react-native-webview 13.15 reports isTopFrame: true for every Android
+// request, iframes included, so the top-frame rule would send reCAPTCHA
+// iframe redirects to the system browser. Android allows all loads.
+export function shouldLoadRequest(
+  request: { url: string; isTopFrame?: boolean },
+  platform: "ios" | "android",
+): "allow" | "open_external" {
+  if (platform === "android") return "allow";
   if (request.isTopFrame !== true) return "allow";
   if (request.url.startsWith("about:")) return "allow";
   const origin = originOf(request.url);

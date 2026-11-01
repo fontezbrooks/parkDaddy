@@ -99,6 +99,10 @@ export function hasGuestCode(
   return (profile?.guestCode ?? "").trim().length > 0;
 }
 
+export function digitsOnly(raw: string): string {
+  return raw.replace(/\D/g, "");
+}
+
 export type CoverageSessionLike = {
   desiredEndTime: number;
   lastParkEnd?: number;

@@ -6,8 +6,10 @@ export const PARKEAZ_START_URL =
 export const ZONE = "622";
 
 const EASTERN_TZ = "America/New_York";
+// A page time is trusted only inside (now, now + 2h + slack].
+const PARK_END_SLACK_MS = 15 * 60 * 1000;
 const PARK_END_PATTERN =
-  /(?:valid until|ends|expires|parkend)\D{0,40}?(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/i;
+  /\b(?:valid until|ends|expires|parkend)\b\D{0,40}?(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/i;
 
 export type ParkEazPage =
   | "paid"
@@ -151,13 +153,21 @@ export function parsePageParkEnd(
   text: string,
   now: number,
 ): { parkEnd: number; source: "page" | "fallback" } {
-  const match = PARK_END_PATTERN.exec(text);
-  if (match) {
-    const [y, mo, d, h, mi, s] = match.slice(1).map(Number);
-    const parkEnd = easternWallClockToMs(Date.UTC(y, mo - 1, d, h, mi, s));
-    if (Number.isFinite(parkEnd)) return { parkEnd, source: "page" };
-  }
+  const parkEnd = matchParkEnd(text);
+  const isPlausible =
+    parkEnd !== null &&
+    now < parkEnd &&
+    parkEnd <= now + REGISTRATION_MS + PARK_END_SLACK_MS;
+  if (isPlausible) return { parkEnd, source: "page" };
   return { parkEnd: now + REGISTRATION_MS, source: "fallback" };
+}
+
+function matchParkEnd(text: string): number | null {
+  const match = PARK_END_PATTERN.exec(text);
+  if (!match) return null;
+  const [y, mo, d, h, mi, s] = match.slice(1).map(Number);
+  const parkEnd = easternWallClockToMs(Date.UTC(y, mo - 1, d, h, mi, s));
+  return Number.isFinite(parkEnd) ? parkEnd : null;
 }
 
 function getQueryParam(url: string, name: string): string | null {

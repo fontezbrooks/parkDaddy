@@ -7,6 +7,7 @@ import {
   normalizePlate,
   normalizeGuestCode,
   coverageEndFor,
+  digitsOnly,
   hasGuestCode,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
@@ -179,6 +180,19 @@ describe("coverageEndFor", () => {
         _creationTime: 100,
       }),
     ).toBe(100);
+  });
+});
+
+describe("digitsOnly", () => {
+  test("keeps every digit, including the country code", () => {
+    expect(digitsOnly("+1 (404) 555-0199")).toBe("14045550199");
+  });
+  test("leaves a digits-only number unchanged", () => {
+    expect(digitsOnly("4045550199")).toBe("4045550199");
+  });
+  test("returns an empty string when there are no digits", () => {
+    expect(digitsOnly("")).toBe("");
+    expect(digitsOnly("n/a")).toBe("");
   });
 });
 

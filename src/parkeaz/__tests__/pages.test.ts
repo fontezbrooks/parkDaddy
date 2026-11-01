@@ -179,7 +179,8 @@ describe("parsePageParkEnd", () => {
     ["Parking valid until 2027-03-14 01:30:00", "2027-03-14T06:30:00.000Z"],
     ["Parking valid until 2027-03-14 03:30:00", "2027-03-14T07:30:00.000Z"],
   ])("reads %s with the correct EST/EDT offset", (text, iso) => {
-    const result = parsePageParkEnd(text, now);
+    const oneHourBefore = Date.parse(iso) - 3600_000;
+    const result = parsePageParkEnd(text, oneHourBefore);
     expect(result.source).toBe("page");
     expect(new Date(result.parkEnd).toISOString()).toBe(iso);
   });
@@ -190,6 +191,26 @@ describe("parsePageParkEnd", () => {
     expect(parsePageParkEnd(text, now)).toEqual({
       parkEnd: now + 2 * 3600_000,
       source: "fallback",
+    });
+  });
+  test.each([
+    ["a past time", "Parking valid until 2026-10-31 18:00:00"],
+    ["a time 3h ahead", "Parking valid until 2026-10-31 22:00:00"],
+    ["a trigger word inside another word", "Weekends 2026-10-31 21:07:15"],
+  ])("falls back for %s", (_label, text) => {
+    expect(parsePageParkEnd(text, now)).toEqual({
+      parkEnd: now + 2 * 3600_000,
+      source: "fallback",
+    });
+  });
+  test("accepts a time 2h15m ahead, the edge of the window", () => {
+    const result = parsePageParkEnd(
+      "Parking valid until 2026-10-31 21:15:00",
+      now,
+    );
+    expect(result).toEqual({
+      parkEnd: now + 2 * 3600_000 + 15 * 60_000,
+      source: "page",
     });
   });
   test("falls back to now + 2h when no time is present", () => {

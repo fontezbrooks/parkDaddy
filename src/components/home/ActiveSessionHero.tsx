@@ -42,6 +42,16 @@ type HeroCopy = {
   primary: { label: string; action: "renew" | "addTime" };
 };
 
+// The countdown always runs to the session's end. When the headline shows
+// a registration time, label it so the two are not read as one deadline.
+const SESSION_ENDS_LABEL = "Session ends in";
+
+function countdownLabelFor(state: SessionState): string | null {
+  return state.kind === "due" || state.kind === "unregistered"
+    ? SESSION_ENDS_LABEL
+    : null;
+}
+
 function formatClock(ms: number): string {
   return new Date(ms).toLocaleTimeString([], {
     hour: "2-digit",
@@ -140,6 +150,7 @@ export function ActiveSessionHero({
 }: Props) {
   const anim = useHeroEntrance();
   const copy = copyFor(state, coverageEndFor(session));
+  const countdownLabel = countdownLabelFor(state);
   const onPrimary = copy.primary.action === "renew" ? onRenew : onAddTime;
 
   return (
@@ -160,6 +171,13 @@ export function ActiveSessionHero({
       </Animated.Text>
 
       <Animated.View style={[styles.countdownBlock, anim.countdownStyle]}>
+        <Text
+          style={[typography.labelSm, styles.countdownLabel]}
+          accessibilityElementsHidden={countdownLabel === null}
+          importantForAccessibility={countdownLabel === null ? "no" : "auto"}
+        >
+          {countdownLabel ?? " "}
+        </Text>
         <CountdownTimer
           targetTime={coverageEndFor(session)}
           variant="large"
@@ -224,6 +242,7 @@ const styles = StyleSheet.create({
   kickerError: { color: colors.error, marginBottom: spacing.sm },
   headline: { color: colors.primary, marginBottom: spacing.xl },
   countdownBlock: { marginBottom: spacing["2xl"] },
+  countdownLabel: { color: colors.onSurfaceVariant, marginBottom: spacing.xs },
   countdownNumber: {
     ...typography.displayHero,
     color: colors.primary,

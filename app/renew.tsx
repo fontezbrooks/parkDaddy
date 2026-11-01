@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { AutofillValues } from "@/src/parkeaz/pages";
 import { parseRenewParams } from "@/src/parkeaz/renewFlow";
 import { RenewScreen } from "@/src/components/renew/RenewScreen";
-import { hasGuestCode } from "@/src/domain/renewal";
+import { digitsOnly, hasGuestCode } from "@/src/domain/renewal";
 import { colors } from "@/src/theme";
 
 type ActiveSession = NonNullable<
@@ -20,7 +20,7 @@ function toAutofillValues(
 ): AutofillValues {
   return {
     plate: session.plate,
-    mobile: session.mobile,
+    mobile: digitsOnly(session.mobile),
     email: session.email,
     firstName: session.firstName,
     lastName: session.lastName,

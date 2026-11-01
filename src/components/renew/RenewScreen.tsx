@@ -1,4 +1,4 @@
-import { Linking, StyleSheet, View } from "react-native";
+import { Linking, Platform, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -14,7 +14,8 @@ const ORIGIN_WHITELIST = ["*"];
 const START_SOURCE = { uri: PARKEAZ_START_URL };
 
 function handleShouldStartLoad(request: ShouldStartLoadRequest): boolean {
-  if (shouldLoadRequest(request) === "allow") return true;
+  const platform = Platform.OS === "android" ? "android" : "ios";
+  if (shouldLoadRequest(request, platform) === "allow") return true;
   Linking.openURL(request.url).catch(() => undefined);
   return false;
 }
@@ -39,6 +40,7 @@ export function RenewScreen({ sessionId, values }: Props) {
         onLoadEnd={webView.onLoadEnd}
         onMessage={webView.onMessage}
         onError={webView.onError}
+        onHttpError={webView.onHttpError}
         style={styles.webView}
         accessibilityLabel="ParkEaz registration"
       />

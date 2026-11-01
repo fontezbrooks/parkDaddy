@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/react-native";
 import type WebView from "react-native-webview";
 import type {
   WebViewErrorEvent,
+  WebViewHttpErrorEvent,
   WebViewMessageEvent,
   WebViewNavigationEvent,
 } from "react-native-webview/lib/WebViewTypes";
@@ -15,6 +16,7 @@ import type { AutofillValues } from "@/src/parkeaz/pages";
 import {
   bannerText,
   breadcrumbResultFor,
+  httpErrorEvent,
   injectionFor,
   isFatalSaveError,
   isParkEazOrigin,
@@ -188,6 +190,14 @@ function useWebViewHandlers(values: AutofillValues, dispatch: Dispatch) {
     [dispatch],
   );
 
+  const onHttpError = useCallback(
+    (event: WebViewHttpErrorEvent) => {
+      const next = httpErrorEvent(event.nativeEvent.statusCode);
+      if (next) dispatch(next);
+    },
+    [dispatch],
+  );
+
   return {
     webViewRef,
     webViewKey,
@@ -196,6 +206,7 @@ function useWebViewHandlers(values: AutofillValues, dispatch: Dispatch) {
     onLoadEnd,
     onMessage,
     onError,
+    onHttpError,
   };
 }
 
