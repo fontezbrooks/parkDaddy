@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { isFinished } from "../src/domain/renewal";
 
 // Internal query helper to get push tokens for a user
 
@@ -8,8 +9,7 @@ export const sendExpiryWarning = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
-    if (session.status !== "active") return;
+    if (!session || isFinished(session.status)) return;
 
     const user = await ctx.db.get(session.userId);
     if (!user?.notifyOnExpiry) return;
@@ -45,7 +45,7 @@ export const sendDuePush = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.status !== "active") return;
+    if (!session || isFinished(session.status)) return;
 
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,
@@ -60,7 +60,7 @@ export const sendLapsePush = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.status !== "active") return;
+    if (!session || isFinished(session.status)) return;
 
     await ctx.scheduler.runAfter(0, internal.notifications.push, {
       userId: session.userId,

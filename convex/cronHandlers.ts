@@ -1,6 +1,6 @@
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { DAILY_DURATION_MS } from "../src/domain/renewal";
 import {
   cancelScheduled,
@@ -81,6 +81,64 @@ async function scheduleMissingCompletion(
   await ctx.db.patch(session._id, { completionId });
 }
 
+async function hasClientRegistration(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+): Promise<boolean> {
+  const logs = ctx.db
+    .query("renewalLogs")
+    .withIndex("by_session", (q) => q.eq("sessionId", sessionId));
+  for await (const log of logs) {
+    if (log.source === "client") return true;
+  }
+  return false;
+}
+
+// (e) Registrations recorded by the old server scraper (parkId "unknown",
+// or no client-recorded registration) may never have reached ParkEaz. Treat
+// them as lapsed now and send the lapse push once; lastParkEnd = now keeps
+// later sweeps from matching again.
+async function lapseLegacyRegistration(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  now: number,
+): Promise<void> {
+  if (session.lastParkEnd === undefined || session.lastParkEnd <= now) return;
+  const isLegacy =
+    session.currentParkId === "unknown" ||
+    !(await hasClientRegistration(ctx, session._id));
+  if (!isLegacy) return;
+  await cancelScheduled(ctx, session.duePushId);
+  await cancelScheduled(ctx, session.lapsePushId);
+  await ctx.db.patch(session._id, {
+    lastParkEnd: now,
+    lapsedAt: now,
+    duePushId: undefined,
+    lapsePushId: undefined,
+  });
+  await ctx.scheduler.runAfter(0, internal.notifications.sendLapsePush, {
+    sessionId: session._id,
+  });
+}
+
+async function sweepActive(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  now: number,
+): Promise<void> {
+  await clearLegacyTick(ctx, session);
+  if (session.desiredEndTime <= now) {
+    await completeOverdue(ctx, session);
+    return;
+  }
+  if (session.desiredEndTime === Number.MAX_SAFE_INTEGER) {
+    await migrateExtended(ctx, session, now);
+  } else {
+    await scheduleMissingCompletion(ctx, session);
+  }
+  await lapseLegacyRegistration(ctx, session, now);
+}
+
 export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -98,15 +156,6 @@ export const sweep = internalMutation({
       .query("sessions")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
-    for (const session of active) {
-      await clearLegacyTick(ctx, session);
-      if (session.desiredEndTime === Number.MAX_SAFE_INTEGER) {
-        await migrateExtended(ctx, session, now);
-      } else if (session.desiredEndTime <= now) {
-        await completeOverdue(ctx, session);
-      } else {
-        await scheduleMissingCompletion(ctx, session);
-      }
-    }
+    for (const session of active) await sweepActive(ctx, session, now);
   },
 });

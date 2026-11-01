@@ -27,7 +27,7 @@ export type SessionState =
   | { kind: "unregistered"; since: number }
   | { kind: "done" };
 
-function isFinished(status: string): boolean {
+export function isFinished(status: string): boolean {
   return status === "completed" || status === "cancelled";
 }
 
