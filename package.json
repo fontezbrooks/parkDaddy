@@ -12,7 +12,7 @@
     "eas:submit": "eas submit --platform ios",
     "eas:dev": "eas build --platform ios --profile development",
     "eas:prod": "eas build --platform ios --profile production",
-    "publish": "npm run prebuild && npm run eas:prod && npm run eas:submit",
+    "publish": "pnpm run prebuild && pnpm run eas:prod && pnpm run eas:submit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
