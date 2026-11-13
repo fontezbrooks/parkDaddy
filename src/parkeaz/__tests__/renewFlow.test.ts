@@ -6,6 +6,7 @@ import {
   parseWebViewMessage,
   isFatalSaveError,
   breadcrumbResultFor,
+  checkoutSubmitFor,
   shouldLoadRequest,
   httpErrorEvent,
   type RenewFlowState,
@@ -452,6 +453,18 @@ describe("parseWebViewMessage additions", () => {
       ).toBeNull();
     },
   );
+});
+
+describe("checkoutSubmitFor", () => {
+  test.each([
+    ["submitted", "auto"],
+    ["timeout", "timeout"],
+    ["skipped", "skipped"],
+    ["waiting", null],
+    ["applied", null],
+  ] as const)("%s -> %p", (result, expected) => {
+    expect(checkoutSubmitFor(result)).toBe(expected);
+  });
 });
 
 test("shouldLoadRequest allows challenges.cloudflare.com top-frame on iOS", () => {

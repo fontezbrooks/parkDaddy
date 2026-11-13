@@ -307,6 +307,15 @@ export function httpErrorEvent(statusCode: number): RenewFlowEvent | null {
 
 export type RenewResult = "success" | "parkeaz_error" | "load_error";
 
+export type CheckoutSubmit = "auto" | "timeout" | "skipped";
+
+// Which checkout outcomes are worth a breadcrumb, and under what name.
+export function checkoutSubmitFor(result: AutofillResult): CheckoutSubmit | null {
+  if (result === "submitted") return "auto";
+  if (result === "timeout" || result === "skipped") return result;
+  return null;
+}
+
 export function breadcrumbResultFor(
   step: RenewFlowState["step"],
 ): RenewResult | null {
