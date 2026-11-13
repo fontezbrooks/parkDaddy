@@ -174,6 +174,7 @@ Spec: `.claude/plans/turnstile-autosubmit-variable-coverage-design.md`. Tick the
   - Result:
   - Notes:
 - [ ] **T-AC-8** Sentry shows `renew_checkout` (`submit`, `msToToken`, `durationParsed`) and `renew_result` (`parkEndSource`) with no token, email, phone, or guest code.
+- [ ] **T-AC-9** On `/select_product` the "Allow Text Alerts?" box is ticked before Continue; registration proceeds and ParkEaz sends the SMS receipt. With the box removed from the page (dev tools), autofill still fills and submits.
   - Result:
   - Notes:
 

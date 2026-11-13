@@ -106,6 +106,10 @@ const SELECT_PRODUCT_BODY = `
   setValue("email", V.email);
   setValue("firstname", V.firstName);
   setValue("lastname", V.lastName);
+  // Opt in to ParkEaz text alerts. click() runs the label's own handler;
+  // the box is optional on the page, so its absence changes nothing.
+  var alerts = byId("parkallowtextalert");
+  if (alerts && !alerts.checked) alerts.click();
   if (!V.guestCode) { post("skipped"); return; }
   setValue("guestcode", V.guestCode);
   post("applied");

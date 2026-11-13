@@ -10,7 +10,13 @@
 <input type="hidden" name="couponcode" value="">
 <input type="hidden" name="postalcode" value="">
 <input type="hidden" name="product" value="3615">
-<input type="hidden" name="parkallowtextalert" value="on">
+<!-- live markup 2026-11-13: label onclick calls the page's own ifAllowTexts() -->
+<b>Allow Text Alerts?</b>&nbsp;(data rates may apply)
+<label class="appcheckbox" onclick="ifAllowTexts();">
+  <input type="checkbox" id="parkallowtextalert" name="parkallowtextalert">
+  <span class="checkmark"></span>
+  <span>Check box to receive text alerts..</span>
+</label>
 <input type="hidden" name="zone" value="622">
 <input type="hidden" name="zoneid" value="247">
 <input type="hidden" name="propertyid" value="202">
