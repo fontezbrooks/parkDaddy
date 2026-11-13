@@ -113,7 +113,8 @@ export default function StartParkingScreen() {
             Covered for 24 hours, one tap at a time.
           </Text>
           <Text style={[typography.bodySm, { color: colors.onSurfaceVariant }]}>
-            ParkEaz needs a human check every 2 hours. We&apos;ll ping you 10
+            ParkEaz needs a human check every 2 hours, until 10 AM after 9
+            PM. We&apos;ll ping you 10
             minutes before each window ends.
           </Text>
         </View>

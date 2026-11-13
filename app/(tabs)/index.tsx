@@ -93,7 +93,7 @@ function ActiveState({ session }: { session: ActiveSession }) {
     <>
       {session.migratedFromExtendedAt ? (
         <InlineError
-          message={`Extended Stay is gone: ParkEaz now requires a tap every 2 hours. This session ends at ${endTime}.`}
+          message={`Extended Stay is gone: ParkEaz now requires a tap every 2 hours, until 10 AM after 9 PM. This session ends at ${endTime}.`}
         />
       ) : null}
       <ActiveSessionHero
@@ -120,7 +120,7 @@ function FirstTimerState() {
         Need to Park?
       </Text>
       <Text style={[typography.bodyLg, styles.firstTimerBody]}>
-        Add your plate and we&apos;ll ping you before each 2-hour window ends.
+        Add your plate and we&apos;ll ping you before each window ends.
         One tap keeps you covered.
       </Text>
       <View style={styles.actions}>
@@ -172,7 +172,7 @@ function SingleVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          24 hours · one tap every 2 hours
+          24 hours · one tap every 2 hours, until 10 AM after 9 PM
         </Text>
       </View>
 
@@ -243,7 +243,7 @@ function MultiVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          24 hours · one tap every 2 hours
+          24 hours · one tap every 2 hours, until 10 AM after 9 PM
         </Text>
       </View>
 

@@ -33,4 +33,5 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx eslint app src convex --max-warnings 20
-      - run: npx jest --ci
+      - run: TZ=UTC npx jest --ci
+      - run: TZ=America/New_York npx jest --ci
