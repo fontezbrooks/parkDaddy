@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Stack, router, useRootNavigationState } from "expo-router";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient } from "convex/react";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 import { useFonts } from "expo-font";
 import {
   Inter_400Regular,
@@ -28,6 +27,10 @@ import * as Sentry from "@sentry/react-native";
 import { WhatsNewSheet } from "@/src/components/WhatsNewSheet";
 import { AnimatedSplash } from "@/src/components/splash/AnimatedSplash";
 import { useAppReady } from "@/src/hooks/useAppReady";
+import {
+  ConvexAuthWatchdog,
+  useClerkAuthForConvex,
+} from "@/src/auth/convexReauth";
 import { routeForNotificationData } from "@/src/notifications/routeForNotificationData";
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
@@ -168,9 +171,10 @@ export default Sentry.wrap(function RootLayout() {
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      <ConvexProviderWithAuth client={convex} useAuth={useClerkAuthForConvex}>
+        <ConvexAuthWatchdog />
         <RootLayoutInner fontsLoaded={fontsLoaded} fontError={fontError} />
-      </ConvexProviderWithClerk>
+      </ConvexProviderWithAuth>
     </ClerkProvider>
   );
 });

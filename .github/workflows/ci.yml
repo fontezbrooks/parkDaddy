@@ -26,12 +26,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npx eslint app src convex --max-warnings 20
-      - run: TZ=UTC npx jest --ci
-      - run: TZ=America/New_York npx jest --ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm exec eslint app src convex --max-warnings 20
+      - run: TZ=UTC pnpm exec jest --ci
+      - run: TZ=America/New_York pnpm exec jest --ci
