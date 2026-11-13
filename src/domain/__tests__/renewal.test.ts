@@ -8,7 +8,6 @@ import {
   normalizeGuestCode,
   coverageEndFor,
   digitsOnly,
-  hasGuestCode,
   planRegistrationPushes,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
@@ -197,18 +196,6 @@ describe("digitsOnly", () => {
   });
 });
 
-describe("hasGuestCode", () => {
-  test.each([
-    [undefined, false],
-    [null, false],
-    [{}, false],
-    [{ guestCode: "" }, false],
-    [{ guestCode: "   " }, false],
-    [{ guestCode: "ABCD12" }, true],
-  ])("%p -> %p", (profile, expected) => {
-    expect(hasGuestCode(profile)).toBe(expected);
-  });
-});
 
 describe("planRegistrationPushes", () => {
   const desiredEndTime = T0 + 24 * 3600_000;

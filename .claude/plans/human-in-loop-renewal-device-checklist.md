@@ -13,8 +13,9 @@ Tick the box only on pass. On fail, leave it unticked and write the device, OS, 
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Fresh install with a guest-code profile, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and guest code visible, one tap registers, Home shows Registered until now+2h within 15 s.
-  - How: Fresh install, sign in, Settings, enter guest code, Home, Park, complete the WebView with one tap on Register.
+- [ ] **AC-1** Fresh install, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and the property guest code (from Convex env `PARKEAZ_GUEST_CODE`) visible, one tap registers, Home shows Registered until now+2h within 15 s.
+  - How: Fresh install, sign in, Home, Park, complete the WebView with one tap on Register. No guest-code entry anywhere in the app.
+  - Also: with `PARKEAZ_GUEST_CODE` unset on the dev deployment, `/renew` shows "Parking registration is temporarily unavailable. Try again later." and never loads the ParkEaz form.
   - Result:
   - Notes:
 - [ ] **AC-2** Due push arrives 10 minutes before `lastParkEnd`; tapping it opens the renewal screen for the right session on cold and warm start, iOS and Android.
@@ -64,6 +65,10 @@ Run these in order, only after the checklist above is complete. This section is 
 4. Android: upload the AAB per `docs/google-play-submission.md`.
 
 Note: after step 1, 3.2.0 clients cannot register (the server-side registration they call is gone) until they update to 3.3.0. Keep the gap between step 1 and steps 3 and 4 short.
+
+Rollback: `git checkout <last 3.2.0 commit> -- convex && npx convex deploy` restores server renewals; the 3.2.0 store binaries stay valid. Re-run the sweep after re-deploying 3.3.0.
+
+Guest code rotation (no release): `npx convex env set PARKEAZ_GUEST_CODE <new> --prod`. Takes effect the next time a user opens the renew screen.
 
 ## Reviewer carry-forwards
 

@@ -11,6 +11,8 @@ export default defineSchema({
     notifyOnExpiry: v.boolean(),
     notifyOnSuccess: v.boolean(),
     mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
+    // Legacy (3.3.0 pre-release): the guest code now comes from the Convex
+    // env via config.getGuestCode. Kept optional so existing docs validate.
     guestCode: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
