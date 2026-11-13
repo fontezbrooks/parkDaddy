@@ -6,9 +6,9 @@
 
 **App Name:** parkDaddy
 
-**Subtitle:** Auto-renew guest parking
+**Subtitle:** One-tap guest parking renewals
 
-**Promotional Text:** Tired of re-registering guest parking every 2 hours? parkDaddy handles it automatically -- set your duration and forget it. Built for Ponce Springs Lofts.
+**Promotional Text:** Guest parking at Ponce Springs Lofts resets every 2 hours. parkDaddy pings you before each window ends and gets you re-registered in one tap.
 
 **Description:**
 
@@ -16,20 +16,20 @@ Guest parking at Ponce Springs Lofts shouldn't be a chore. The garage gives you 
 
 parkDaddy fixes this.
 
-Enter a license plate. Pick how long you need -- 2 hours, 8 hours, overnight, whatever. parkDaddy takes it from there, automatically re-registering your guest's parking on the server every cycle until your chosen time is up. No app to keep open. No alarms to set. No midnight re-registrations.
+Enter a license plate and register your guest in the app. ParkEaz now asks for a human check, so each 2-hour window needs one tap from you. parkDaddy sends a push notification 10 minutes before the window ends. Tap it, confirm, and your guest is covered for another 2 hours.
 
 HOW IT WORKS
 
 1. Tap "Start Parking" and enter the guest vehicle's plate number
-2. Choose a duration (2h, 4h, 8h, 12h, 24h, or overnight)
-3. That's it. parkDaddy auto-renews on the server until your time expires
+2. Register your guest with the first tap
+3. When we ping you before each 2-hour window ends, tap once to renew
 
-The renewal runs on our backend, not your phone. Close the app. Turn off your phone. Go to sleep. Your guest's parking stays registered.
+Each renewal is a single tap in the app. Keep notifications on so you never miss the reminder.
 
-STAY INFORMED WITHOUT LIFTING A FINGER
+NEVER MISS A WINDOW
 
-- Push notification 15 minutes before your session expires so you can extend if needed
-- Instant alert if a renewal fails so you can take action
+- Push notification 10 minutes before each 2-hour window ends so you can renew with one tap
+- Clear "unregistered" status on the home screen if a window is missed
 - Live countdown on the home screen shows exactly how much time is left
 - One tap to extend, one tap to stop early
 
@@ -45,7 +45,7 @@ Part of the Daddy app ecosystem -- apps for smart people that make complex tasks
 
 Free. No ads. No in-app purchases. No catches.
 
-**Keywords:** parking,guest parking,auto renew,ponce springs,atlanta,parking timer,apartment parking,lofts
+**Keywords:** parking,guest parking,renewal reminder,ponce springs,atlanta,parking timer,apartment parking,lofts
 
 **Category:** Utilities
 
@@ -57,7 +57,7 @@ Free. No ads. No in-app purchases. No catches.
 
 **App Name:** parkDaddy
 
-**Short Description:** Auto-renew guest parking at Ponce Springs Lofts. Set it and forget it.
+**Short Description:** One-tap guest parking renewals at Ponce Springs Lofts.
 
 **Full Description:**
 
@@ -65,20 +65,20 @@ Guest parking at Ponce Springs Lofts shouldn't be a chore. The garage gives you 
 
 parkDaddy fixes this.
 
-Enter a license plate. Pick how long you need -- 2 hours, 8 hours, overnight, whatever. parkDaddy takes it from there, automatically re-registering your guest's parking on the server every cycle until your chosen time is up. No app to keep open. No alarms to set. No midnight re-registrations.
+Enter a license plate and register your guest in the app. ParkEaz now asks for a human check, so each 2-hour window needs one tap from you. parkDaddy sends a push notification 10 minutes before the window ends. Tap it, confirm, and your guest is covered for another 2 hours.
 
 HOW IT WORKS
 ==============================
 1. Tap "Start Parking" and enter the guest vehicle's plate number
-2. Choose a duration (2h, 4h, 8h, 12h, 24h, or overnight)
-3. That's it. parkDaddy auto-renews on the server until your time expires
+2. Register your guest with the first tap
+3. When we ping you before each 2-hour window ends, tap once to renew
 
-The renewal runs on our backend, not your phone. Close the app. Turn off your phone. Go to sleep. Your guest's parking stays registered.
+Each renewal is a single tap in the app. Keep notifications on so you never miss the reminder.
 
-STAY INFORMED WITHOUT LIFTING A FINGER
+NEVER MISS A WINDOW
 ==============================
-- Push notification 15 minutes before your session expires so you can extend if needed
-- Instant alert if a renewal fails so you can take action
+- Push notification 10 minutes before each 2-hour window ends so you can renew with one tap
+- Clear "unregistered" status on the home screen if a window is missed
 - Live countdown on the home screen shows exactly how much time is left
 - One tap to extend, one tap to stop early
 
@@ -106,9 +106,9 @@ Free. No ads. No in-app purchases. No catches.
 
 First release of parkDaddy.
 
-- Automated guest parking renewal -- set your duration and the server handles re-registration every cycle
-- Push notifications 15 minutes before expiry and on renewal failures
-- Duration presets: 2h, 4h, 8h, 12h, 24h, and overnight
+- One-tap guest parking renewal -- tap once for each 2-hour window
+- Push reminders 10 minutes before each window ends
+- 24-hour sessions you can extend
 - Save vehicles for one-tap future sessions
 - Live countdown timer with real-time status updates
 - Extend or stop sessions with a single tap

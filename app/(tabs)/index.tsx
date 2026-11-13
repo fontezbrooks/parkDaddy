@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Linking,
-  AccessibilityInfo,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -15,19 +8,20 @@ import Animated, {
   Easing,
   useSharedValue,
   useAnimatedStyle,
-  withDelay,
   withTiming,
   withRepeat,
   withSequence,
-  interpolate,
 } from "react-native-reanimated";
 import * as Sentry from "@sentry/react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
-import { CountdownTimer } from "@/src/components/CountdownTimer";
-import { ModeToggle, type Mode } from "@/src/components/ModeToggle";
+import { ActiveSessionHero } from "@/src/components/home/ActiveSessionHero";
+import {
+  coverageEndFor,
+  deriveSessionState,
+  GUEST_CODE_REQUIRED_MESSAGE,
+  hasGuestCode,
+} from "@/src/domain/renewal";
 import { mapConvexError } from "@/src/utils/convexErrors";
-
-const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
 
 type ActiveSession = NonNullable<
   ReturnType<typeof useQuery<typeof api.sessions.getActive>>
@@ -42,6 +36,17 @@ function formatRelative(ms: number): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+// Renewals cannot submit without a guest code: send the user to Settings.
+function ensureGuestCode(
+  isGuestCodeSet: boolean,
+  setError: (message: string) => void,
+): boolean {
+  if (isGuestCodeSet) return true;
+  setError(GUEST_CODE_REQUIRED_MESSAGE);
+  router.push("/(tabs)/settings");
+  return false;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -74,272 +79,61 @@ function LoadingState() {
 // Active state — full-bleed hero
 // ─────────────────────────────────────────────────────────────
 
-function ActiveState({ session }: { session: ActiveSession }) {
-  const [retrying, setRetrying] = useState(false);
+const STATE_TICK_MS = 30 * 1000;
 
-  const isExtended = (session.mode ?? "daily") === "extended";
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), STATE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
 
-  // Daily sessions display the planned cap. Extended Stay's desiredEndTime
-  // is a sentinel (MAX_SAFE_INTEGER) that JS can't render as a Date, so we
-  // never feed it to toLocaleTimeString.
-  const endTimeFormatted = isExtended
-    ? null
-    : new Date(session.desiredEndTime).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+function ActiveState({
+  session,
+  isGuestCodeSet,
+}: {
+  session: ActiveSession;
+  isGuestCodeSet: boolean;
+}) {
+  const now = useNow();
+  const state = deriveSessionState(session, now);
+  const [error, setError] = useState("");
 
-  const startedFormatted = new Date(session._creationTime).toLocaleString([], {
-    weekday: "short",
+  const openRenew = useCallback(() => {
+    if (!ensureGuestCode(isGuestCodeSet, setError)) return;
+    setError("");
+    router.push({ pathname: "/renew", params: { sessionId: session._id } });
+  }, [session._id, isGuestCodeSet]);
+
+  const endTime = new Date(coverageEndFor(session)).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-  const kicker = useSharedValue(0);
-  const label = useSharedValue(0);
-  const countdown = useSharedValue(0);
-  const plate = useSharedValue(0);
-  const actions = useSharedValue(0);
-
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then((r) => {
-      const d = r ? 0 : 1;
-      const base = r ? 120 : 520;
-      kicker.value = withDelay(
-        80 * d,
-        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
-      );
-      label.value = withDelay(
-        180 * d,
-        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
-      );
-      countdown.value = withDelay(
-        320 * d,
-        withTiming(1, { duration: base + 120, easing: EASE_OUT_QUART }),
-      );
-      plate.value = withDelay(
-        500 * d,
-        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
-      );
-      actions.value = withDelay(
-        640 * d,
-        withTiming(1, { duration: base, easing: EASE_OUT_QUART }),
-      );
-    });
-  }, [kicker, label, countdown, plate, actions]);
-
-  const kickerStyle = useAnimatedStyle(() => ({
-    opacity: kicker.value,
-    transform: [{ translateY: interpolate(kicker.value, [0, 1], [10, 0]) }],
-  }));
-  const labelStyle = useAnimatedStyle(() => ({
-    opacity: label.value,
-    transform: [{ translateY: interpolate(label.value, [0, 1], [16, 0]) }],
-  }));
-  const countdownStyle = useAnimatedStyle(() => ({
-    opacity: countdown.value,
-    transform: [
-      { translateY: interpolate(countdown.value, [0, 1], [24, 0]) },
-      { scale: interpolate(countdown.value, [0, 1], [0.96, 1]) },
-    ],
-  }));
-  const plateStyle = useAnimatedStyle(() => ({
-    opacity: plate.value,
-    transform: [{ translateY: interpolate(plate.value, [0, 1], [16, 0]) }],
-  }));
-  const actionsStyle = useAnimatedStyle(() => ({
-    opacity: actions.value,
-    transform: [{ translateY: interpolate(actions.value, [0, 1], [20, 0]) }],
-  }));
-
-  const isFailed = session.status === "failed";
-  const isRenewing = session.status === "renewing";
-
-  const validUntil = session.lastParkEnd
-    ? new Date(session.lastParkEnd).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-
-  const retryMutation = useMutation(api.sessions.retry);
-  const handleRetry = useCallback(async () => {
-    setRetrying(true);
-    try {
-      await retryMutation({ sessionId: session._id });
-    } catch (err) {
-      Sentry.captureException(
-        err instanceof Error ? err : new Error("Retry failed"),
-      );
-    } finally {
-      setRetrying(false);
-    }
-  }, [retryMutation, session._id]);
-
-  if (isFailed) {
-    return (
-      <View style={styles.heroBlock}>
-        <Animated.Text
-          style={[typography.labelSm, styles.kickerError, kickerStyle]}
-        >
-          Heads up
-        </Animated.Text>
-        <Animated.Text
-          style={[typography.displayMd, styles.failedTitle, labelStyle]}
-        >
-          Renewal didn't take.
-        </Animated.Text>
-        <Animated.Text
-          style={[typography.bodyLg, styles.failedBody, countdownStyle]}
-        >
-          {validUntil
-            ? `${session.plate} is covered until ${validUntil}. Register manually to stay covered.`
-            : `We couldn't renew ${session.plate}. Register manually to stay covered.`}
-        </Animated.Text>
-
-        <Animated.View style={[styles.actions, actionsStyle]}>
-          <Pressable
-            onPress={() => Linking.openURL("https://paid.parkeaz.com")}
-            style={({ pressed }) => [
-              styles.primaryCta,
-              pressed && styles.pressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Open ParkEaz"
-          >
-            <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
-              Open ParkEaz
-            </Text>
-            <Text style={styles.primaryCtaArrow}></Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleRetry}
-            disabled={retrying}
-            hitSlop={12}
-            style={styles.retryLink}
-            accessibilityRole="button"
-            accessibilityLabel="Try automatic renewal again"
-          >
-            <Text
-              style={[
-                typography.bodyMd,
-                retrying ? styles.retryDisabled : styles.retryLabel,
-              ]}
-            >
-              {retrying ? "Trying again…" : "Try again"}
-            </Text>
-          </Pressable>
-        </Animated.View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.heroBlock}>
-      <Animated.Text style={[typography.labelSm, styles.kicker, kickerStyle]}>
-        {isRenewing
-          ? "Renewing"
-          : isExtended
-            ? "Extended Stay"
-            : "Covered until"}
-      </Animated.Text>
-      <Animated.Text style={[typography.displayMd, styles.endTime, labelStyle]}>
-        {isExtended ? "Auto-renewing" : endTimeFormatted}
-      </Animated.Text>
-
-      {isExtended ? (
-        <Animated.View style={[styles.extendedStat, countdownStyle]}>
-          <Text
-            style={[typography.labelSm, { color: colors.onSurfaceVariant }]}
-          >
-            STARTED
-          </Text>
-          <Text style={[typography.displaySm, { color: colors.primary }]}>
-            {startedFormatted}
-          </Text>
-        </Animated.View>
-      ) : (
-        <Animated.View style={[styles.countdownBlock, countdownStyle]}>
-          <CountdownTimer
-            targetTime={session.desiredEndTime}
-            variant="large"
-            showSeconds={false}
-            style={styles.countdownNumber}
-          />
-        </Animated.View>
-      )}
-
-      <Animated.View style={[styles.plateBlock, plateStyle]}>
-        <View style={styles.plateUnderlineWrap}>
-          <Text style={[typography.headlineMd, styles.plateText]}>
-            {session.plate}
-          </Text>
-          <View style={styles.plateUnderline} />
-        </View>
-        <Text style={[typography.bodyMd, styles.locationText]}>
-          {isExtended ? "Auto-renews until you stop" : "Ponce Springs"}
-        </Text>
-      </Animated.View>
-
-      <Animated.View style={[styles.actions, actionsStyle]}>
-        {!isExtended ? (
-          <Pressable
-            onPress={() => router.push("/extend-duration")}
-            style={({ pressed }) => [
-              styles.primaryCta,
-              pressed && styles.pressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Add time"
-          >
-            <Text style={[typography.titleLg, styles.primaryCtaLabel]}>
-              Add time
-            </Text>
-            <Text style={styles.primaryCtaArrow}></Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          onPress={() => router.push("/confirm-stop")}
-          hitSlop={12}
-          style={({ pressed }) =>
-            isExtended
-              ? [
-                  styles.primaryCta,
-                  styles.endSessionExtended,
-                  pressed && styles.pressed,
-                ]
-              : styles.secondaryCta
-          }
-          accessibilityRole="button"
-          accessibilityLabel="End session"
-        >
-          <Text
-            style={[
-              isExtended ? typography.titleLg : typography.bodyMd,
-              isExtended
-                ? styles.endSessionExtendedLabel
-                : styles.secondaryCtaLabel,
-            ]}
-          >
-            End session
-          </Text>
-        </Pressable>
-      </Animated.View>
-    </View>
+    <>
+      {session.migratedFromExtendedAt ? (
+        <InlineError
+          message={`Extended Stay is gone: ParkEaz now requires a tap every 2 hours. This session ends at ${endTime}.`}
+        />
+      ) : null}
+      <ActiveSessionHero
+        state={state}
+        session={session}
+        onRenew={openRenew}
+        onAddTime={() => router.push("/extend-duration")}
+        onEnd={() => router.push("/confirm-stop")}
+      />
+      {error ? <InlineError message={error} /> : null}
+    </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
 // Inactive states
 // ─────────────────────────────────────────────────────────────
-
-type InactiveCommonProps = {
-  onPark: (plate: string) => Promise<void>;
-  loadingPlate: string | null;
-  error: string;
-};
 
 function FirstTimerState() {
   return (
@@ -349,7 +143,8 @@ function FirstTimerState() {
         Need to Park?
       </Text>
       <Text style={[typography.bodyLg, styles.firstTimerBody]}>
-        Add your plate and we'll keep you parked. Auto-renew, auto-everything.
+        Add your plate and we&apos;ll ping you before each 2-hour window ends.
+        One tap keeps you covered.
       </Text>
       <View style={styles.actions}>
         <Pressable
@@ -373,13 +168,11 @@ function FirstTimerState() {
 
 function SingleVehicleState({
   plate,
-  mode,
   lastUsedAt,
   onPark,
   loading,
 }: {
   plate: string;
-  mode: Mode;
   lastUsedAt: number | null;
   onPark: (plate: string) => void;
   loading: boolean;
@@ -402,9 +195,7 @@ function SingleVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          {mode === "extended"
-            ? "Auto-renews until you stop"
-            : "24 hours · auto-renewing"}
+          24 hours · one tap every 2 hours
         </Text>
       </View>
 
@@ -444,7 +235,6 @@ function SingleVehicleState({
 function MultiVehicleState({
   primary,
   others,
-  mode,
   lastParkedPlate,
   lastParkedAt,
   onPark,
@@ -452,7 +242,6 @@ function MultiVehicleState({
 }: {
   primary: { _id: string; plate: string };
   others: { _id: string; plate: string }[];
-  mode: Mode;
   lastParkedPlate: string | null;
   lastParkedAt: number | null;
   onPark: (plate: string) => void;
@@ -477,9 +266,7 @@ function MultiVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          {mode === "extended"
-            ? "Auto-renews until you stop"
-            : "24 hours · auto-renewing"}
+          24 hours · one tap every 2 hours
         </Text>
       </View>
 
@@ -551,25 +338,25 @@ function MultiVehicleState({
 function InactiveState({
   lastParkedPlate,
   lastParkedAt,
+  isGuestCodeSet,
 }: {
   lastParkedPlate: string | null;
   lastParkedAt: number | null;
+  isGuestCodeSet: boolean;
 }) {
   const vehicles = useQuery(api.vehicles.list) ?? [];
-  const profile = useQuery(api.users.getProfile);
   const createSession = useMutation(api.sessions.create);
-  const updateMode = useMutation(api.users.updateMode);
   const [loadingPlate, setLoadingPlate] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const mode: Mode = profile?.mode ?? "daily";
-
   const handlePark = useCallback(
     async (plate: string) => {
+      if (!ensureGuestCode(isGuestCodeSet, setError)) return;
       setLoadingPlate(plate);
       setError("");
       try {
-        await createSession({ plate });
+        const sessionId = await createSession({ plate });
+        router.push({ pathname: "/renew", params: { sessionId } });
       } catch (err) {
         const friendly = mapConvexError(err);
         setError(friendly);
@@ -580,36 +367,11 @@ function InactiveState({
         setLoadingPlate(null);
       }
     },
-    [createSession],
-  );
-
-  const handleModeChange = useCallback(
-    async (next: Mode) => {
-      if (next === mode) return;
-      try {
-        await updateMode({ mode: next });
-      } catch (err) {
-        Sentry.captureException(
-          err instanceof Error ? err : new Error("Mode change failed"),
-        );
-      }
-    },
-    [mode, updateMode],
-  );
-
-  const modeToggle = (
-    <View style={styles.modeToggleWrap}>
-      <ModeToggle mode={mode} onChange={handleModeChange} />
-    </View>
+    [createSession, isGuestCodeSet],
   );
 
   if (vehicles.length === 0) {
-    return (
-      <>
-        {modeToggle}
-        <FirstTimerState />
-      </>
-    );
+    return <FirstTimerState />;
   }
 
   // Sort so last-parked vehicle is primary (fallback to lastUsedAt)
@@ -625,10 +387,8 @@ function InactiveState({
     const v = sorted[0];
     return (
       <>
-        {modeToggle}
         <SingleVehicleState
           plate={v.plate}
-          mode={mode}
           lastUsedAt={
             lastParkedPlate === v.plate ? lastParkedAt : (v.lastUsedAt ?? null)
           }
@@ -643,11 +403,9 @@ function InactiveState({
   const [primary, ...rest] = sorted;
   return (
     <>
-      {modeToggle}
       <MultiVehicleState
         primary={{ _id: primary._id, plate: primary.plate }}
         others={rest.slice(0, 2).map((r) => ({ _id: r._id, plate: r.plate }))}
-        mode={mode}
         lastParkedPlate={lastParkedPlate}
         lastParkedAt={lastParkedAt}
         onPark={handlePark}
@@ -673,18 +431,23 @@ function InlineError({ message }: { message: string }) {
 export default function HomeScreen() {
   const session = useQuery(api.sessions.getActive);
   const lastParked = useQuery(api.sessions.getLastParked);
+  const profile = useQuery(api.users.getProfile);
+  const isLoading =
+    session === undefined || lastParked === undefined || profile === undefined;
+  const isGuestCodeSet = hasGuestCode(profile);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      {session === undefined || lastParked === undefined ? (
+      {isLoading ? (
         <LoadingState />
       ) : session === null ? (
         <InactiveState
           lastParkedPlate={lastParked?.plate ?? null}
           lastParkedAt={lastParked?.endedAt ?? null}
+          isGuestCodeSet={isGuestCodeSet}
         />
       ) : (
-        <ActiveState session={session} />
+        <ActiveState session={session} isGuestCodeSet={isGuestCodeSet} />
       )}
     </SafeAreaView>
   );
@@ -721,10 +484,6 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginBottom: spacing.sm,
   },
-  kickerError: {
-    color: colors.error,
-    marginBottom: spacing.sm,
-  },
 
   endTime: {
     color: colors.primary,
@@ -739,33 +498,12 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     marginBottom: spacing["3xl"],
   },
-  failedTitle: {
-    color: colors.primary,
-    marginBottom: spacing.md,
-  },
-  failedBody: {
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing["3xl"],
-  },
-
-  countdownBlock: {
-    marginBottom: spacing["2xl"],
-  },
-  countdownNumber: {
-    ...typography.displayHero,
-    color: colors.primary,
-    textAlign: "left",
-    fontVariant: ["tabular-nums"],
-  },
 
   plateBlock: {
     marginBottom: spacing["3xl"],
   },
   plateUnderlineWrap: {
     alignSelf: "flex-start",
-  },
-  plateText: {
-    color: colors.primary,
   },
   singlePlate: {
     color: colors.primary,
@@ -845,19 +583,8 @@ const styles = StyleSheet.create({
     fontFamily: "Figtree_600SemiBold",
   },
 
-  retryLink: {
-    alignSelf: "center",
-    paddingVertical: spacing.sm,
-  },
-  retryLabel: {
-    color: colors.accent,
-    fontFamily: "Figtree_600SemiBold",
-  },
-  retryDisabled: {
-    color: colors.onSurfaceMuted,
-  },
-
   inlineErrorBox: {
+    marginTop: spacing.lg,
     marginHorizontal: spacing["2xl"],
     marginBottom: spacing.xl,
     padding: spacing.md,
@@ -866,20 +593,5 @@ const styles = StyleSheet.create({
   },
   inlineErrorText: {
     color: colors.error,
-  },
-  modeToggleWrap: {
-    paddingHorizontal: spacing["2xl"],
-    paddingTop: spacing.lg,
-  },
-  extendedStat: {
-    marginBottom: spacing["2xl"],
-    gap: spacing.xs,
-  },
-  endSessionExtended: {
-    backgroundColor: colors.surfaceContainerHigh,
-    justifyContent: "center",
-  },
-  endSessionExtendedLabel: {
-    color: colors.onSurface,
   },
 });

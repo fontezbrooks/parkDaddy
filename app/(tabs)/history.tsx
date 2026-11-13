@@ -21,6 +21,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
+import { coverageEndFor } from "@/src/domain/renewal";
 import { colors, typography, spacing } from "@/src/theme";
 
 const EASE_OUT_QUART = Easing.bezier(0.25, 1, 0.5, 1);
@@ -42,15 +43,8 @@ function getStatusStyle(status: string) {
   }
 }
 
-// Extended Stay sessions store desiredEndTime as MAX_SAFE_INTEGER (sentinel
-// for indefinite). Treat their actual coverage as start → last successful
-// renewal so summary math stays finite.
 function sessionCoverageMs(s: SessionItem): number {
-  const isExtended = (s.mode ?? "daily") === "extended";
-  const end = isExtended
-    ? (s.lastParkEnd ?? s._creationTime)
-    : s.desiredEndTime;
-  return Math.max(0, end - s._creationTime);
+  return Math.max(0, coverageEndFor(s) - s._creationTime);
 }
 
 function computeSummary(sessions: SessionItem[]) {
@@ -241,10 +235,9 @@ function SummaryHeader({
 function SessionRow({ session }: { session: SessionItem }) {
   const status = getStatusStyle(session.status);
   const date = new Date(session._creationTime);
-  const isExtended = (session.mode ?? "daily") === "extended";
   const durationHours =
     Math.round((sessionCoverageMs(session) / 3600000) * 10) / 10;
-  const durationLabel = isExtended ? "Extended Stay" : `${durationHours}h`;
+  const durationLabel = `${durationHours}h`;
 
   return (
     <View

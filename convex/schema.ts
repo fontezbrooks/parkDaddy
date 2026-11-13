@@ -11,6 +11,7 @@ export default defineSchema({
     notifyOnExpiry: v.boolean(),
     notifyOnSuccess: v.boolean(),
     mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
+    guestCode: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
   vehicles: defineTable({
@@ -42,6 +43,12 @@ export default defineSchema({
     lastError: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
     weeklyCheckInId: v.optional(v.id("_scheduled_functions")),
+    dueAt: v.optional(v.number()),
+    lapsedAt: v.optional(v.number()),
+    duePushId: v.optional(v.id("_scheduled_functions")),
+    lapsePushId: v.optional(v.id("_scheduled_functions")),
+    completionId: v.optional(v.id("_scheduled_functions")),
+    migratedFromExtendedAt: v.optional(v.number()),
   })
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
@@ -54,6 +61,10 @@ export default defineSchema({
     parkStart: v.optional(v.number()),
     parkEnd: v.optional(v.number()),
     error: v.optional(v.string()),
+    source: v.optional(v.union(v.literal("server"), v.literal("client"))),
+    parkEndSource: v.optional(
+      v.union(v.literal("page"), v.literal("fallback")),
+    ),
   }).index("by_session", ["sessionId"]),
 
   pushTokens: defineTable({

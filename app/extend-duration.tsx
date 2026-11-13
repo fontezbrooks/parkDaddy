@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { colors, typography, spacing, radius } from "@/src/theme";
@@ -17,12 +17,10 @@ import { StatusPill } from "@/src/components/StatusPill";
 const DAILY_EXTENSION_MS = 24 * 60 * 60 * 1000;
 
 export default function ExtendDurationScreen() {
-  const params = useLocalSearchParams<{ autoExtend?: string }>();
   const session = useQuery(api.sessions.getActive);
   const extendSession = useMutation(api.sessions.extend);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const autoExtendFiredRef = useRef(false);
 
   const newEndTime = useMemo(() => {
     if (!session) return null;
@@ -42,18 +40,6 @@ export default function ExtendDurationScreen() {
       setLoading(false);
     }
   }, [session, extendSession]);
-
-  // Notification-action path: if /extend-duration?autoExtend=1, fire the
-  // extend mutation as soon as we have a session and route home on success.
-  // Guarded with a ref so re-renders don't trigger a second extend.
-  useEffect(() => {
-    if (autoExtendFiredRef.current) return;
-    if (params.autoExtend !== "1") return;
-    if (!session) return;
-    if ((session.mode ?? "daily") === "extended") return;
-    autoExtendFiredRef.current = true;
-    handleExtend();
-  }, [params.autoExtend, session, handleExtend]);
 
   if (session === undefined) {
     return (
@@ -79,30 +65,6 @@ export default function ExtendDurationScreen() {
         >
           No active session
         </Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Extended Stay sessions auto-renew indefinitely — nothing to extend.
-  // Bounce back to home rather than show a broken-looking extend screen.
-  if ((session.mode ?? "daily") === "extended") {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.emptyState}>
-          <Text style={[typography.headlineMd, { color: colors.primary }]}>
-            Already auto-renewing
-          </Text>
-          <Text
-            style={[
-              typography.bodyMd,
-              { color: colors.onSurfaceVariant, textAlign: "center" },
-            ]}
-          >
-            Extended Stay keeps your car parked until you turn it off — no
-            extension needed.
-          </Text>
-          <GradientButton title="Back to home" onPress={() => router.back()} />
-        </View>
       </SafeAreaView>
     );
   }
@@ -146,7 +108,7 @@ export default function ExtendDurationScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              We'll auto-renew for another 24 hours.
+              That adds 24 hours. You&apos;ll still tap to renew every 2 hours.
             </Text>
           </View>
         )}

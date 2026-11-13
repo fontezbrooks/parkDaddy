@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { normalizeGuestCode } from "../src/domain/renewal";
 
 export const getProfile = query({
   args: {},
@@ -74,10 +75,8 @@ export const updateNotificationPrefs = mutation({
   },
 });
 
-export const updateMode = mutation({
-  args: {
-    mode: v.union(v.literal("daily"), v.literal("extended")),
-  },
+export const updateGuestCode = mutation({
+  args: { guestCode: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
@@ -88,21 +87,12 @@ export const updateMode = mutation({
       .unique();
     if (!user) throw new Error("Profile not found");
 
-    for (const status of ["active", "renewing", "failed"]) {
-      const existing = await ctx.db
-        .query("sessions")
-        .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", status),
-        )
-        .first();
-      if (existing) {
-        throw new Error(
-          "Stop your current parking session before changing modes.",
-        );
-      }
+    const guestCode = normalizeGuestCode(args.guestCode);
+    if (guestCode === null) {
+      throw new Error("Guest code must be 4-12 letters or digits");
     }
 
-    await ctx.db.patch(user._id, { mode: args.mode });
+    await ctx.db.patch(user._id, { guestCode });
   },
 });
 

@@ -12,7 +12,6 @@ import type * as cronHandlers from "../cronHandlers.js";
 import type * as crons from "../crons.js";
 import type * as notifications from "../notifications.js";
 import type * as notificationsHelpers from "../notificationsHelpers.js";
-import type * as parkeaz from "../parkeaz.js";
 import type * as pushTokens from "../pushTokens.js";
 import type * as renewal from "../renewal.js";
 import type * as sessions from "../sessions.js";
@@ -30,7 +29,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   notifications: typeof notifications;
   notificationsHelpers: typeof notificationsHelpers;
-  parkeaz: typeof parkeaz;
   pushTokens: typeof pushTokens;
   renewal: typeof renewal;
   sessions: typeof sessions;

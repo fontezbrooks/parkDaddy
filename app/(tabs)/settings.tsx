@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,11 @@ import { router } from "expo-router";
 import Constants from "expo-constants";
 import { colors, typography, spacing } from "@/src/theme";
 import { SurfaceCard } from "@/src/components/SurfaceCard";
+import { FormField } from "@/src/components/FormField";
+import {
+  GUEST_CODE_INVALID_MESSAGE,
+  normalizeGuestCode,
+} from "@/src/domain/renewal";
 
 export default function SettingsScreen() {
   const { signOut } = useAuth();
@@ -26,6 +31,34 @@ export default function SettingsScreen() {
   const deleteVehicle = useMutation(api.vehicles.remove);
   const deleteAccountMutation = useMutation(api.users.deleteAccount);
   const activeSession = useQuery(api.sessions.getActive);
+
+  const updateGuestCode = useMutation(api.users.updateGuestCode);
+
+  const savedGuestCode = profile?.guestCode;
+  const [guestCode, setGuestCode] = useState("");
+  const [guestCodeError, setGuestCodeError] = useState("");
+
+  useEffect(() => {
+    if (savedGuestCode) setGuestCode(savedGuestCode);
+  }, [savedGuestCode]);
+
+  const saveGuestCode = async () => {
+    if (guestCode.trim() === "") return;
+    const normalized = normalizeGuestCode(guestCode);
+    if (normalized === null) {
+      setGuestCodeError(GUEST_CODE_INVALID_MESSAGE);
+      return;
+    }
+    try {
+      await updateGuestCode({ guestCode: normalized });
+      setGuestCode(normalized);
+      setGuestCodeError("");
+    } catch (err: unknown) {
+      setGuestCodeError(
+        err instanceof Error ? err.message : "Couldn't save your guest code.",
+      );
+    }
+  };
 
   const [signingOut, setSigningOut] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -149,8 +182,7 @@ export default function SettingsScreen() {
                         {
                           text: "Remove",
                           style: "destructive",
-                          onPress: () =>
-                            deleteVehicle({ vehicleId: item._id }),
+                          onPress: () => deleteVehicle({ vehicleId: item._id }),
                         },
                       ],
                     );
@@ -173,6 +205,26 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* Parking */}
+        {profile && (
+          <View style={styles.section}>
+            <Text style={[typography.headlineSm, styles.sectionTitle]}>
+              Parking
+            </Text>
+            <FormField
+              label="Guest code"
+              value={guestCode}
+              onChangeText={setGuestCode}
+              onBlur={() => void saveGuestCode()}
+              error={guestCodeError}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="done"
+              accessibilityLabel="Guest code"
+            />
+          </View>
+        )}
+
         {/* Notifications */}
         {profile && (
           <View style={styles.section}>
@@ -185,10 +237,7 @@ export default function SettingsScreen() {
                   Expiry warnings
                 </Text>
                 <Text
-                  style={[
-                    typography.bodySm,
-                    { color: colors.onSurfaceMuted },
-                  ]}
+                  style={[typography.bodySm, { color: colors.onSurfaceMuted }]}
                 >
                   15 minutes before parking expires
                 </Text>
@@ -213,12 +262,9 @@ export default function SettingsScreen() {
                   Renewal alerts
                 </Text>
                 <Text
-                  style={[
-                    typography.bodySm,
-                    { color: colors.onSurfaceMuted },
-                  ]}
+                  style={[typography.bodySm, { color: colors.onSurfaceMuted }]}
                 >
-                  When auto-renewal succeeds
+                  When a registration succeeds
                 </Text>
               </View>
               <Switch
@@ -247,10 +293,7 @@ export default function SettingsScreen() {
             accessibilityLabel="Sign out"
           >
             <Text
-              style={[
-                typography.bodyMd,
-                { color: colors.onSurfaceVariant },
-              ]}
+              style={[typography.bodyMd, { color: colors.onSurfaceVariant }]}
             >
               {signingOut ? "Signing out..." : "Sign out"}
             </Text>

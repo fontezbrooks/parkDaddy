@@ -1,16 +1,22 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import type { Scheduler } from "convex/server";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  EXPIRY_WARNING_MS,
+  planRegistrationPushes,
+  shouldMarkLapsed,
+  shouldSendDuePush,
+  type RegistrationPushPlan,
+} from "../src/domain/renewal";
 
-const BUFFER_MS = 10 * 60 * 1000; // 10 min safety buffer before parkend
-const EXPIRY_WARNING_MS = 15 * 60 * 1000; // 15 min before desired end
+type ScheduledId = Id<"_scheduled_functions">;
 
-const TERMINAL_STATES = ["cancelled", "completed", "failed"];
-
-async function cancelScheduled(
-  ctx: { scheduler: { cancel: (id: any) => Promise<void> } },
-  id: any,
-) {
+export async function cancelScheduled(
+  ctx: { scheduler: Scheduler },
+  id: ScheduledId | undefined,
+): Promise<void> {
   if (!id) return;
   try {
     await ctx.scheduler.cancel(id);
@@ -19,221 +25,190 @@ async function cancelScheduled(
   }
 }
 
-export const tick = internalMutation({
+type PushIds = {
+  duePushId: ScheduledId | undefined;
+  lapsePushId: ScheduledId | undefined;
+};
+
+// Performs only the runAt calls a plan asks for; the decisions live in
+// planRegistrationPushes.
+async function schedulePlan(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+  parkEnd: number,
+  plan: RegistrationPushPlan,
+): Promise<{ due?: ScheduledId; lapse?: ScheduledId }> {
+  const args = { sessionId, scheduledForParkEnd: parkEnd };
+  const due =
+    plan.due === null
+      ? undefined
+      : await ctx.scheduler.runAt(plan.due, internal.renewal.sendDuePush, args);
+  const lapse =
+    plan.lapse === null
+      ? undefined
+      : await ctx.scheduler.runAt(
+          plan.lapse,
+          internal.renewal.markLapsed,
+          args,
+        );
+  return { due, lapse };
+}
+
+/**
+ * Replaces the due/lapse pushes for a session's newest registration.
+ * Never schedules anything at or past the session's desiredEndTime.
+ */
+export async function scheduleRegistrationPushes(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  parkEnd: number,
+): Promise<PushIds> {
+  await cancelScheduled(ctx, session.duePushId);
+  await cancelScheduled(ctx, session.lapsePushId);
+
+  const plan = planRegistrationPushes({
+    parkEnd,
+    desiredEndTime: session.desiredEndTime,
+    now: null,
+    existing: {},
+  });
+  const ids = await schedulePlan(ctx, session._id, parkEnd, plan);
+  return { duePushId: ids.due, lapsePushId: ids.lapse };
+}
+
+/**
+ * After desiredEndTime moves later, schedules the current registration's
+ * pushes that were skipped for falling past the old end. Keeps existing
+ * ids and never schedules a time already passed, so nothing fires twice.
+ */
+export async function fillMissingRegistrationPushes(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  desiredEndTime: number,
+): Promise<PushIds> {
+  const { lastParkEnd, duePushId, lapsePushId } = session;
+  if (lastParkEnd === undefined || session.lapsedAt !== undefined) {
+    return { duePushId, lapsePushId };
+  }
+  const plan = planRegistrationPushes({
+    parkEnd: lastParkEnd,
+    desiredEndTime,
+    now: Date.now(),
+    existing: {
+      duePushId: duePushId !== undefined,
+      lapsePushId: lapsePushId !== undefined,
+    },
+  });
+  const ids = await schedulePlan(ctx, session._id, lastParkEnd, plan);
+  return {
+    duePushId: duePushId ?? ids.due,
+    lapsePushId: lapsePushId ?? ids.lapse,
+  };
+}
+
+/** Cancels any previous end-of-session jobs and schedules new ones. */
+export async function scheduleSessionEnd(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+  desiredEndTime: number,
+  previous: { expiryWarningId?: ScheduledId; completionId?: ScheduledId },
+): Promise<{
+  expiryWarningId: ScheduledId | undefined;
+  completionId: ScheduledId;
+}> {
+  await cancelScheduled(ctx, previous.expiryWarningId);
+  await cancelScheduled(ctx, previous.completionId);
+
+  const warningTime = desiredEndTime - EXPIRY_WARNING_MS;
+  const expiryWarningId =
+    warningTime > Date.now()
+      ? await ctx.scheduler.runAt(
+          warningTime,
+          internal.notifications.sendExpiryWarning,
+          { sessionId },
+        )
+      : undefined;
+  const completionId = await ctx.scheduler.runAt(
+    desiredEndTime,
+    internal.renewal.completeAtDesiredEnd,
+    { sessionId },
+  );
+  return { expiryWarningId, completionId };
+}
+
+/** Cancels Extended Stay jobs; returns the patch fields for the migration. */
+export async function clearExtendedState(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  now: number,
+): Promise<{
+  weeklyCheckInId: undefined;
+  scheduledFunctionId: undefined;
+  migratedFromExtendedAt: number;
+}> {
+  await cancelScheduled(ctx, session.weeklyCheckInId);
+  await cancelScheduled(ctx, session.scheduledFunctionId);
+  return {
+    weeklyCheckInId: undefined,
+    scheduledFunctionId: undefined,
+    migratedFromExtendedAt: now,
+  };
+}
+
+export const sendDuePush = internalMutation({
+  args: { sessionId: v.id("sessions"), scheduledForParkEnd: v.number() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+    if (!shouldSendDuePush(session, args.scheduledForParkEnd)) return;
+
+    await ctx.scheduler.runAfter(0, internal.notifications.sendDuePush, {
+      sessionId: args.sessionId,
+    });
+  },
+});
+
+export const markLapsed = internalMutation({
+  args: { sessionId: v.id("sessions"), scheduledForParkEnd: v.number() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return;
+    const now = Date.now();
+    if (!shouldMarkLapsed(session, args.scheduledForParkEnd, now)) return;
+
+    await ctx.db.patch(args.sessionId, { lapsedAt: now });
+    await ctx.db.insert("renewalLogs", {
+      sessionId: args.sessionId,
+      action: "lapsed",
+    });
+    await ctx.scheduler.runAfter(0, internal.notifications.sendLapsePush, {
+      sessionId: args.sessionId,
+    });
+  },
+});
+
+export const completeAtDesiredEnd = internalMutation({
   args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    if (!session) {
-      console.log(`[Renewal] tick: session ${args.sessionId} not found`);
-      return;
-    }
+    if (!session || session.status !== "active") return;
 
-    console.log(
-      `[Renewal] tick: session=${session._id}, status=${session.status}`,
-    );
-
-    if (TERMINAL_STATES.includes(session.status)) {
-      console.log(
-        `[Renewal] tick: skipping — terminal state "${session.status}"`,
-      );
-      return;
-    }
-
-    // If already past desired end and we have coverage, complete.
-    // Extended Stay sessions never hit this branch — desiredEndTime is set
-    // to MAX_SAFE_INTEGER at create time and the chain runs until cancel.
-    const mode = session.mode ?? "daily";
-    if (
-      mode === "daily" &&
-      session.lastParkEnd &&
-      session.lastParkEnd >= session.desiredEndTime
-    ) {
-      await cancelScheduled(ctx, session.expiryWarningId);
-      await ctx.db.patch(args.sessionId, {
-        status: "completed",
-        expiryWarningId: undefined,
-      });
-      await ctx.db.insert("renewalLogs", {
-        sessionId: args.sessionId,
-        action: "completed",
-      });
-      await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
-        sessionId: args.sessionId,
-      });
-      return;
-    }
-
-    // Mark as renewing with timestamp
+    await cancelScheduled(ctx, session.duePushId);
+    await cancelScheduled(ctx, session.lapsePushId);
+    await cancelScheduled(ctx, session.expiryWarningId);
     await ctx.db.patch(args.sessionId, {
-      status: "renewing",
-      renewingAt: Date.now(),
+      status: "completed",
+      duePushId: undefined,
+      lapsePushId: undefined,
+      expiryWarningId: undefined,
+      completionId: undefined,
     });
-
-    await ctx.scheduler.runAfter(0, internal.parkeaz.renewalAction, {
-      sessionId: args.sessionId,
-      plate: session.plate,
-      firstName: session.firstName,
-      lastName: session.lastName,
-      email: session.email,
-      mobile: session.mobile,
-    });
-  },
-});
-
-export const saveResult = internalMutation({
-  args: {
-    sessionId: v.id("sessions"),
-    parkId: v.string(),
-    parkStart: v.number(),
-    parkEnd: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
-
-    // Guard against all terminal states
-    if (TERMINAL_STATES.includes(session.status)) return;
-
     await ctx.db.insert("renewalLogs", {
       sessionId: args.sessionId,
-      action: "renewal",
-      parkId: args.parkId,
-      parkStart: args.parkStart,
-      parkEnd: args.parkEnd,
+      action: "completed",
     });
-
-    // Check if parking now covers desired end time. Extended Stay sessions
-    // skip this — desiredEndTime is MAX_SAFE_INTEGER, so the comparison is
-    // never true in practice, but the explicit mode gate documents intent.
-    const mode = session.mode ?? "daily";
-    if (mode === "daily" && args.parkEnd >= session.desiredEndTime) {
-      await cancelScheduled(ctx, session.expiryWarningId);
-      await ctx.db.patch(args.sessionId, {
-        status: "completed",
-        currentParkId: args.parkId,
-        lastParkStart: args.parkStart,
-        lastParkEnd: args.parkEnd,
-        retryCount: 0,
-        lastError: undefined,
-        scheduledFunctionId: undefined,
-        expiryWarningId: undefined,
-        renewingAt: undefined,
-      });
-      await ctx.db.insert("renewalLogs", {
-        sessionId: args.sessionId,
-        action: "completed",
-      });
-      await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
-        sessionId: args.sessionId,
-      });
-      return;
-    }
-
-    // Cancel previous scheduled tick if any
-    await cancelScheduled(ctx, session.scheduledFunctionId);
-
-    // Schedule next renewal: 10 min before parkEnd
-    const nextRenewalAt = args.parkEnd - BUFFER_MS;
-    const delay = Math.max(0, nextRenewalAt - Date.now());
-
-    const scheduledFunctionId = await ctx.scheduler.runAfter(
-      delay,
-      internal.renewal.tick,
-      { sessionId: args.sessionId },
-    );
-
-    // Schedule expiry warning if not already done and within range.
-    // Extended Stay mode never schedules one — the weekly check-in chain
-    // (set up in sessions.create) is the safety net instead.
-    let expiryWarningId = session.expiryWarningId;
-    if (mode === "daily" && !expiryWarningId) {
-      const warningTime = session.desiredEndTime - EXPIRY_WARNING_MS;
-      if (warningTime > Date.now()) {
-        expiryWarningId = await ctx.scheduler.runAt(
-          warningTime,
-          internal.notifications.sendExpiryWarning,
-          { sessionId: args.sessionId },
-        );
-      }
-    }
-
-    await ctx.db.patch(args.sessionId, {
-      status: "active",
-      currentParkId: args.parkId,
-      lastParkStart: args.parkStart,
-      lastParkEnd: args.parkEnd,
-      nextRenewalAt,
-      scheduledFunctionId,
-      retryCount: 0,
-      lastError: undefined,
-      expiryWarningId,
-      renewingAt: undefined,
-    });
-  },
-});
-
-export const handleFailure = internalMutation({
-  args: {
-    sessionId: v.id("sessions"),
-    error: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return;
-
-    if (TERMINAL_STATES.includes(session.status)) return;
-
-    const newRetryCount = session.retryCount + 1;
-
-    await ctx.db.insert("renewalLogs", {
+    await ctx.scheduler.runAfter(0, internal.notifications.sendSessionEnded, {
       sessionId: args.sessionId,
-      action: "failure",
-      error: args.error,
     });
-
-    // Cancel any existing scheduled retry before scheduling a new one
-    await cancelScheduled(ctx, session.scheduledFunctionId);
-
-    if (newRetryCount <= 4) {
-      // Retry with exponential backoff (fresh cookies each time)
-      const delay = Math.pow(2, newRetryCount) * 5000;
-      const scheduledFunctionId = await ctx.scheduler.runAfter(
-        delay,
-        internal.renewal.tick,
-        { sessionId: args.sessionId },
-      );
-      await ctx.db.patch(args.sessionId, {
-        retryCount: newRetryCount,
-        lastError: args.error,
-        status: "renewing",
-        scheduledFunctionId,
-      });
-    } else {
-      await ctx.db.patch(args.sessionId, {
-        status: "failed",
-        retryCount: newRetryCount,
-        lastError: args.error,
-        scheduledFunctionId: undefined,
-        renewingAt: undefined,
-      });
-
-      const timeToExpiry = session.lastParkEnd
-        ? session.lastParkEnd - Date.now()
-        : Infinity;
-
-      if (timeToExpiry < EXPIRY_WARNING_MS) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.notifications.sendUrgentFailure,
-          { sessionId: args.sessionId },
-        );
-      } else {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.notifications.sendRenewalFailure,
-          { sessionId: args.sessionId },
-        );
-      }
-    }
   },
 });

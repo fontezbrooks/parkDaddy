@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Stack, router } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Stack, router, useRootNavigationState } from "expo-router";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
@@ -28,6 +28,7 @@ import * as Sentry from "@sentry/react-native";
 import { WhatsNewSheet } from "@/src/components/WhatsNewSheet";
 import { AnimatedSplash } from "@/src/components/splash/AnimatedSplash";
 import { useAppReady } from "@/src/hooks/useAppReady";
+import { routeForNotificationData } from "@/src/notifications/routeForNotificationData";
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
@@ -64,59 +65,47 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Register the Extend action category for expiry-warning notifications.
-// opensAppToForeground: true is the honest setting — Expo's background
-// notification action handler only reliably runs on Android via TaskManager,
-// so we open the app and let the extend-duration screen auto-fire the
-// mutation when ?autoExtend=1 is present in the route.
-Notifications.setNotificationCategoryAsync("extend_24h", [
-  {
-    identifier: "EXTEND_24H",
-    buttonTitle: "Extend 24h",
-    options: { opensAppToForeground: true },
-  },
-]).catch((error) => {
-  console.error("Failed to register extend_24h notification category:", error);
-});
-
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
 });
 
 const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
-const ALLOWED_NOTIFICATION_ROUTES = [
-  "/(tabs)",
-  "/extend-duration",
-  "/confirm-stop",
-] as const;
+type HandledRef = { current: string | null };
 
-function isAllowedRoute(
-  route: string,
-): route is (typeof ALLOWED_NOTIFICATION_ROUTES)[number] {
-  return (ALLOWED_NOTIFICATION_ROUTES as readonly string[]).includes(route);
+// Routes a tapped push once; the warm listener and the cold-start response
+// can both report the same tap, keyed by its request identifier.
+function openNotificationRoute(
+  response: Notifications.NotificationResponse,
+  handledRef: HandledRef,
+): void {
+  const id = response.notification.request.identifier;
+  if (handledRef.current === id) return;
+  const route = routeForNotificationData(
+    response.notification.request.content.data,
+  );
+  if (!route) return;
+  handledRef.current = id;
+  router.push(route);
 }
 
-function useNotificationObserver() {
+function useNotificationObserver(appReady: boolean) {
+  const handledRef = useRef<string | null>(null);
+  const isNavigatorMounted = Boolean(useRootNavigationState()?.key);
+  const lastResponse = Notifications.useLastNotificationResponse();
+
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        // If the user tapped the Extend action button (not the notification
-        // body), route to extend-duration with autoExtend=1 so the screen
-        // fires the mutation immediately on mount.
-        if (response.actionIdentifier === "EXTEND_24H") {
-          router.push("/extend-duration?autoExtend=1");
-          return;
-        }
-
-        const url = response.notification.request.content.data?.route;
-        if (typeof url === "string" && isAllowedRoute(url)) {
-          router.push(url);
-        }
-      },
+      (response) => openNotificationRoute(response, handledRef),
     );
     return () => sub.remove();
   }, []);
+
+  // Cold start: the tap that launched the app arrives before any listener.
+  useEffect(() => {
+    if (!lastResponse || !isNavigatorMounted || !appReady) return;
+    openNotificationRoute(lastResponse, handledRef);
+  }, [lastResponse, isNavigatorMounted, appReady]);
 }
 
 function RootLayoutInner({
@@ -126,8 +115,8 @@ function RootLayoutInner({
   fontsLoaded: boolean;
   fontError: Error | null;
 }) {
-  useNotificationObserver();
   const appReady = useAppReady({ fontsLoaded, fontError });
+  useNotificationObserver(appReady);
 
   return (
     <>
@@ -146,6 +135,10 @@ function RootLayoutInner({
         <Stack.Screen
           name="extend-duration"
           options={{ headerShown: true, title: "Extend Parking" }}
+        />
+        <Stack.Screen
+          name="renew"
+          options={{ headerShown: true, title: "Renew Parking" }}
         />
         <Stack.Screen
           name="confirm-stop"
