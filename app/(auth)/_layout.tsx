@@ -1,26 +1,31 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Stack, useSegments } from "expo-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { resolveAuthGate } from "@/src/auth/authGate";
 
 export default function AuthLayout() {
   const { isSignedIn, isLoaded } = useAuth();
-  const profile = useQuery(api.users.getProfile);
+  const convexAuth = useConvexAuth();
+  const profile = useQuery(
+    api.users.getProfile,
+    convexAuth.isAuthenticated ? {} : "skip",
+  );
   const segments = useSegments();
 
-  if (!isLoaded) return null;
+  const gate = resolveAuthGate({
+    clerkLoaded: isLoaded,
+    isSignedIn: Boolean(isSignedIn),
+    convexLoading: convexAuth.isLoading,
+    convexAuthenticated: convexAuth.isAuthenticated,
+    profile,
+  });
 
-  // Wait for Convex query to resolve (undefined = loading)
-  if (isSignedIn && profile === undefined) return null;
+  if (gate === "loading") return null;
+  if (gate === "ready") return <Redirect href="/(tabs)" />;
 
-  // Signed in with profile → go to main app
-  if (isSignedIn && profile) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  // Signed in, no profile, NOT already on profile-setup → redirect there
   const onProfileSetup = segments.includes("profile-setup" as never);
-  if (isSignedIn && profile === null && !onProfileSetup) {
+  if (gate === "needs-profile" && !onProfileSetup) {
     return <Redirect href="/(auth)/profile-setup" />;
   }
 

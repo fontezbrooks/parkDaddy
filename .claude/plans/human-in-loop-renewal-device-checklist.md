@@ -175,6 +175,7 @@ Spec: `.claude/plans/turnstile-autosubmit-variable-coverage-design.md`. Tick the
   - Notes:
 - [ ] **T-AC-8** Sentry shows `renew_checkout` (`submit`, `msToToken`, `durationParsed`) and `renew_result` (`parkEndSource`) with no token, email, phone, or guest code.
 - [ ] **T-AC-9** On `/select_product` the "Allow Text Alerts?" box is ticked before Continue; registration proceeds and ParkEaz sends the SMS receipt. With the box removed from the page (dev tools), autofill still fills and submits.
+- [ ] **T-AC-10** Background the app 10+ min (or toggle airplane mode, resume, then restore network). On resume the app shows Home, never profile-setup; Sentry shows `convex_reauth` breadcrumbs only if Convex had dropped auth. No `users:upsertProfile` Unauthenticated errors in Convex logs.
   - Result:
   - Notes:
 

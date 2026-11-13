@@ -1,7 +1,8 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { Redirect, Tabs } from "expo-router";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { resolveAuthGate } from "@/src/auth/authGate";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/src/theme";
 import { usePushTokenRegistration } from "@/src/hooks/usePushTokenRegistration";
@@ -78,13 +79,24 @@ function AuthenticatedTabs() {
 
 export default function TabsLayout() {
   const { isSignedIn, isLoaded } = useAuth();
-  const profile = useQuery(api.users.getProfile);
+  const convexAuth = useConvexAuth();
+  const profile = useQuery(
+    api.users.getProfile,
+    convexAuth.isAuthenticated ? {} : "skip",
+  );
 
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect href="/(auth)/welcome" />;
-  // undefined = query still loading, null = no profile exists
-  if (profile === undefined) return null;
-  if (profile === null) return <Redirect href="/(auth)/profile-setup" />;
+  const gate = resolveAuthGate({
+    clerkLoaded: isLoaded,
+    isSignedIn: Boolean(isSignedIn),
+    convexLoading: convexAuth.isLoading,
+    convexAuthenticated: convexAuth.isAuthenticated,
+    profile,
+  });
+
+  if (gate === "loading") return null;
+  if (gate === "signed-out") return <Redirect href="/(auth)/welcome" />;
+  if (gate === "needs-profile")
+    return <Redirect href="/(auth)/profile-setup" />;
 
   return <AuthenticatedTabs />;
 }
