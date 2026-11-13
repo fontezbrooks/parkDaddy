@@ -1,4 +1,6 @@
 import { ConvexError } from "convex/values";
+import type { CoverageEndSource } from "@/src/domain/renewal";
+import { formatEasternClock } from "@/src/domain/easternTime";
 import {
   PARKEAZ_ORIGIN,
   SUCCESS_PROBE_SCRIPT,
@@ -7,6 +9,7 @@ import {
   parseErrorMessage,
   parsePageParkEnd,
   parseParkId,
+  type AutofillResult,
   type AutofillValues,
   type ParkEazPage,
 } from "./pages";
@@ -15,7 +18,7 @@ type Registration = {
   parkId: string;
   parkStart: number;
   parkEnd: number;
-  parkEndSource: "page" | "fallback";
+  parkEndSource: CoverageEndSource;
 };
 
 export type RenewFlowState =
@@ -23,7 +26,9 @@ export type RenewFlowState =
   | {
       step: "page";
       page: ParkEazPage;
-      autofill: "pending" | "applied" | "skipped";
+      autofill: "pending" | AutofillResult;
+      // Coverage end the checkout page advertised; a fallback for the save.
+      expectedEnd?: number;
     }
   | { step: "parkeaz_error"; message: string }
   | { step: "load_error" }
@@ -33,7 +38,8 @@ export type RenewFlowState =
 
 export type RenewFlowEvent =
   | { type: "navigated"; url: string }
-  | { type: "autofill"; page: ParkEazPage; result: "applied" | "skipped" }
+  | { type: "autofill"; page: ParkEazPage; result: AutofillResult }
+  | { type: "checkout_info"; durationMs: number; now: number }
   | { type: "success_page"; url: string; text: string; now: number }
   | { type: "load_error" }
   | { type: "save_ok" }
@@ -57,16 +63,46 @@ function onNavigated(state: RenewFlowState, url: string): RenewFlowState {
   if (isRegistered(state) || state.step === "load_error") return state;
   const message = parseErrorMessage(url);
   if (message) return { step: "parkeaz_error", message };
-  return { step: "page", page: detectPage(url), autofill: "pending" };
+  // The advertised coverage end rides along to the success page, whose
+  // navigated event arrives before its probe.
+  const expectedEnd = state.step === "page" ? state.expectedEnd : undefined;
+  return {
+    step: "page",
+    page: detectPage(url),
+    autofill: "pending",
+    ...(expectedEnd === undefined ? {} : { expectedEnd }),
+  };
+}
+
+// Returning from the background reloads the start page, except where a
+// reload could lose a registration: on the success page before its probe,
+// and after the script has already pressed Register (the /charge POST may
+// be in flight and the once-flag dies with the discarded page).
+export function isReloadable(state: RenewFlowState): boolean {
+  return (
+    state.step === "page" &&
+    state.page !== "success" &&
+    state.autofill !== "submitted"
+  );
 }
 
 function onAutofill(
   state: RenewFlowState,
   page: ParkEazPage,
-  result: "applied" | "skipped",
+  result: AutofillResult,
 ): RenewFlowState {
   if (state.step !== "page" || state.page !== page) return state;
+  // Once the script has pressed Register nothing on the page can undo it.
+  if (state.autofill === "submitted") return state;
   return { ...state, autofill: result };
+}
+
+function onCheckoutInfo(
+  state: RenewFlowState,
+  event: { durationMs: number; now: number },
+): RenewFlowState {
+  if (state.step !== "page" || state.page !== "checkout") return state;
+  return { ...state, expectedEnd: event.now + event.durationMs };
 }
 
 function onSuccessPage(
@@ -77,7 +113,12 @@ function onSuccessPage(
   const parkId = parseParkId(event.url);
   if (!parkId)
     return { step: "parkeaz_error", message: MISSING_PARK_ID_MESSAGE };
-  const { parkEnd, source } = parsePageParkEnd(event.text, event.now);
+  const expectedEnd = state.step === "page" ? state.expectedEnd : undefined;
+  const { parkEnd, source } = parsePageParkEnd(
+    event.text,
+    event.now,
+    expectedEnd,
+  );
   return {
     step: "saving",
     parkId,
@@ -104,6 +145,8 @@ export function renewFlowReducer(
       return onNavigated(state, event.url);
     case "autofill":
       return onAutofill(state, event.page, event.result);
+    case "checkout_info":
+      return onCheckoutInfo(state, event);
     case "success_page":
       return onSuccessPage(state, event);
     case "load_error":
@@ -119,10 +162,27 @@ export function renewFlowReducer(
   }
 }
 
+const CHECKOUT_BANNERS: Record<"pending" | AutofillResult, string> = {
+  pending: "Waiting for the human check…",
+  waiting: "Waiting for the human check…",
+  applied: "Waiting for the human check…",
+  submitted: "Registering…",
+  timeout: "Tap Register To Park",
+  skipped: "ParkEaz changed their page. Fill it in by hand.",
+};
+
+function checkoutBannerText(
+  state: Extract<RenewFlowState, { step: "page" }>,
+): string {
+  const base = CHECKOUT_BANNERS[state.autofill];
+  if (state.expectedEnd === undefined) return base;
+  return `${base} · Covers until ${formatEasternClock(state.expectedEnd)}`;
+}
+
 function pageBannerText(
   state: Extract<RenewFlowState, { step: "page" }>,
 ): string {
-  if (state.page === "checkout") return "Tap Register To Park";
+  if (state.page === "checkout") return checkoutBannerText(state);
   if (state.autofill === "skipped") {
     return "ParkEaz changed their page. Fill it in by hand.";
   }
@@ -189,8 +249,20 @@ function isPage(value: unknown): value is ParkEazPage {
   return typeof value === "string" && PAGES.includes(value);
 }
 
-function isAutofillResult(value: unknown): value is "applied" | "skipped" {
-  return value === "applied" || value === "skipped";
+const AUTOFILL_RESULTS: readonly string[] = [
+  "applied",
+  "skipped",
+  "waiting",
+  "submitted",
+  "timeout",
+];
+
+function isAutofillResult(value: unknown): value is AutofillResult {
+  return typeof value === "string" && AUTOFILL_RESULTS.includes(value);
+}
+
+function isPositiveDuration(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function parseJsonObject(data: string): Record<string, unknown> | null {
@@ -213,6 +285,10 @@ export function parseWebViewMessage(
   if (msg.type === "autofill" && isPage(msg.page)) {
     if (!isAutofillResult(msg.result)) return null;
     return { type: "autofill", page: msg.page, result: msg.result };
+  }
+  if (msg.type === "checkout_info") {
+    if (!isPositiveDuration(msg.durationMs)) return null;
+    return { type: "checkout_info", durationMs: msg.durationMs, now };
   }
   if (msg.type === "success_page") {
     if (typeof msg.url !== "string" || typeof msg.text !== "string") {
@@ -248,6 +324,15 @@ export function httpErrorEvent(statusCode: number): RenewFlowEvent | null {
 
 export type RenewResult = "success" | "parkeaz_error" | "load_error";
 
+export type CheckoutSubmit = "auto" | "timeout" | "skipped";
+
+// Which checkout outcomes are worth a breadcrumb, and under what name.
+export function checkoutSubmitFor(result: AutofillResult): CheckoutSubmit | null {
+  if (result === "submitted") return "auto";
+  if (result === "timeout" || result === "skipped") return result;
+  return null;
+}
+
 export function breadcrumbResultFor(
   step: RenewFlowState["step"],
 ): RenewResult | null {
@@ -256,9 +341,12 @@ export function breadcrumbResultFor(
   return null;
 }
 
-// Top-frame navigation stays on ParkEaz and reCAPTCHA; sub-frames are free.
+// Top-frame navigation stays on ParkEaz and its human-check providers
+// (Cloudflare Turnstile today; the reCAPTCHA hosts stay until a live capture
+// shows they are gone); sub-frames are free.
 const TOP_FRAME_ORIGINS: readonly string[] = [
   PARKEAZ_ORIGIN,
+  "https://challenges.cloudflare.com",
   "https://www.google.com",
   "https://www.gstatic.com",
   "https://recaptcha.net",

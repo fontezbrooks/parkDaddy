@@ -16,10 +16,12 @@ import type { AutofillValues } from "@/src/parkeaz/pages";
 import {
   bannerText,
   breadcrumbResultFor,
+  checkoutSubmitFor,
   httpErrorEvent,
   injectionFor,
   isFatalSaveError,
   isParkEazOrigin,
+  isReloadable,
   parseWebViewMessage,
   renewFlowReducer,
   type RenewFlowEvent,
@@ -30,6 +32,10 @@ const HOME = "/(tabs)";
 const TICK_MS = 1000;
 
 type Dispatch = (event: RenewFlowEvent) => void;
+
+// Timing for the renew_checkout breadcrumb; reset on each checkout load.
+type CheckoutTelemetry = { loadedAt: number | null; durationParsed: boolean };
+type CheckoutRef = { current: CheckoutTelemetry };
 
 function pathnameOf(url: string): string {
   try {
@@ -55,6 +61,7 @@ function useElapsedSeconds(startedAt: number | null, isRunning: boolean) {
 function useRenewTelemetry(state: RenewFlowState, startedAt: number | null) {
   const startRef = useRef<number | null>(null);
   const stepRef = useRef(state.step);
+  const sourceRef = useRef<string | null>(null);
   const fallbackReportedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -62,22 +69,31 @@ function useRenewTelemetry(state: RenewFlowState, startedAt: number | null) {
   }, [startedAt]);
 
   useEffect(() => {
+    if (state.step === "saving") sourceRef.current = state.parkEndSource;
+  }, [state]);
+
+  useEffect(() => {
     stepRef.current = state.step;
     const result = breadcrumbResultFor(state.step);
     if (!result) return;
     const elapsedMs = Date.now() - (startRef.current ?? Date.now());
+    const parkEndSource =
+      result === "success" ? (sourceRef.current ?? undefined) : undefined;
     Sentry.addBreadcrumb({
       category: "renew",
       message: "renew_result",
-      data: { result, elapsedMs },
+      data: { result, elapsedMs, parkEndSource },
     });
   }, [state.step]);
 
   useEffect(() => {
-    if (state.step !== "saving" || state.parkEndSource !== "fallback") return;
+    if (state.step !== "saving" || state.parkEndSource === "page") return;
     if (fallbackReportedRef.current === state.parkId) return;
     fallbackReportedRef.current = state.parkId;
-    Sentry.captureMessage("renew_parkend_fallback", "warning");
+    Sentry.captureMessage("renew_parkend_fallback", {
+      level: "warning",
+      extra: { source: state.parkEndSource },
+    });
   }, [state]);
 
   useEffect(
@@ -139,17 +155,45 @@ function useForegroundReload(isReloadable: boolean, reload: () => void) {
   }, [reload]);
 }
 
-function handleMessage(event: WebViewMessageEvent, dispatch: Dispatch) {
+// renew_checkout carries timing and outcome only: no token, no user values.
+function recordCheckoutOutcome(
+  result: Extract<RenewFlowEvent, { type: "autofill" }>["result"],
+  checkout: CheckoutRef,
+) {
+  const now = Date.now();
+  if (result === "waiting") {
+    checkout.current = { loadedAt: now, durationParsed: false };
+    return;
+  }
+  const submit = checkoutSubmitFor(result);
+  if (!submit) return;
+  const { loadedAt, durationParsed } = checkout.current;
+  Sentry.addBreadcrumb({
+    category: "renew",
+    message: "renew_checkout",
+    data: { submit, msToToken: now - (loadedAt ?? now), durationParsed },
+  });
+}
+
+function handleMessage(
+  event: WebViewMessageEvent,
+  dispatch: Dispatch,
+  checkout: CheckoutRef,
+) {
   const { url, data } = event.nativeEvent;
   if (!isParkEazOrigin(url)) return;
   const parsed = parseWebViewMessage(data, Date.now());
   if (!parsed) return;
+  if (parsed.type === "checkout_info") {
+    checkout.current = { ...checkout.current, durationParsed: true };
+  }
   if (parsed.type === "autofill") {
     Sentry.addBreadcrumb({
       category: "renew",
       message: "renew_page",
       data: { pathname: pathnameOf(url), autofill: parsed.result },
     });
+    if (parsed.page === "checkout") recordCheckoutOutcome(parsed.result, checkout);
   }
   dispatch(parsed);
 }
@@ -157,6 +201,10 @@ function handleMessage(event: WebViewMessageEvent, dispatch: Dispatch) {
 function useWebViewHandlers(values: AutofillValues, dispatch: Dispatch) {
   const webViewRef = useRef<WebView>(null);
   const lastInjectedUrlRef = useRef<string | null>(null);
+  const checkoutRef = useRef<CheckoutTelemetry>({
+    loadedAt: null,
+    durationParsed: false,
+  });
   const [webViewKey, setWebViewKey] = useState(0);
   const [startedAt, setStartedAt] = useState<number | null>(null);
 
@@ -181,7 +229,8 @@ function useWebViewHandlers(values: AutofillValues, dispatch: Dispatch) {
   );
 
   const onMessage = useCallback(
-    (event: WebViewMessageEvent) => handleMessage(event, dispatch),
+    (event: WebViewMessageEvent) =>
+      handleMessage(event, dispatch, checkoutRef),
     [dispatch],
   );
 
@@ -227,11 +276,7 @@ export function useRenewFlow(
     state.step !== "done",
   );
   useRenewTelemetry(state, webView.startedAt);
-  // Never reload a success page before its probe has captured the parkid.
-  useForegroundReload(
-    state.step === "page" && state.page !== "success",
-    webView.reload,
-  );
+  useForegroundReload(isReloadable(state), webView.reload);
 
   const { reload } = webView;
   const onRetry = useCallback(() => {

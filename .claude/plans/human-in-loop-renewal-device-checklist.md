@@ -13,8 +13,9 @@ Tick the box only on pass. On fail, leave it unticked and write the device, OS, 
 
 ## Acceptance criteria
 
-- [ ] **AC-1** Fresh install with a guest-code profile, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and guest code visible, one tap registers, Home shows Registered until now+2h within 15 s.
-  - How: Fresh install, sign in, Settings, enter guest code, Home, Park, complete the WebView with one tap on Register.
+- [ ] **AC-1** Fresh install, start a session: renewal screen opens, autofill reaches `/checkout` with plate, contact fields, and the property guest code (from Convex env `PARKEAZ_GUEST_CODE`) visible, one tap registers, Home shows Registered until now+2h within 15 s.
+  - How: Fresh install, sign in, Home, Park, complete the WebView with one tap on Register. No guest-code entry anywhere in the app.
+  - Also: with `PARKEAZ_GUEST_CODE` unset on the dev deployment, `/renew` shows "Parking registration is temporarily unavailable. Try again later." and never loads the ParkEaz form.
   - Result:
   - Notes:
 - [ ] **AC-2** Due push arrives 10 minutes before `lastParkEnd`; tapping it opens the renewal screen for the right session on cold and warm start, iOS and Android.
@@ -64,6 +65,10 @@ Run these in order, only after the checklist above is complete. This section is 
 4. Android: upload the AAB per `docs/google-play-submission.md`.
 
 Note: after step 1, 3.2.0 clients cannot register (the server-side registration they call is gone) until they update to 3.3.0. Keep the gap between step 1 and steps 3 and 4 short.
+
+Rollback: `git checkout <last 3.2.0 commit> -- convex && npx convex deploy` restores server renewals; the 3.2.0 store binaries stay valid. Re-run the sweep after re-deploying 3.3.0.
+
+Guest code rotation (no release): `npx convex env set PARKEAZ_GUEST_CODE <new> --prod`. Takes effect the next time a user opens the renew screen.
 
 ## Reviewer carry-forwards
 
@@ -137,3 +142,39 @@ Use 'npx expo install --check' to review and upgrade your dependencies.
 
 1 check failed, indicating possible issues with the project.
 ```
+
+## Turnstile and coverage (2026-11-13 spec)
+
+Spec: `.claude/plans/turnstile-autosubmit-variable-coverage-design.md`. Tick the box only on pass; write the observed value in Result.
+
+- [ ] **T-AC-1** Daytime: tap the due push, no further taps, Home shows "Registered until" now + 2 h within 15 s; `renewalLogs` row has `parkEndSource: "page"`.
+  - How: Any time between 10 AM and 9 PM Eastern, start a session or tap a due push; watch the banner go "Waiting for the human check…" then "Registering…".
+  - Result:
+  - Notes:
+- [ ] **T-AC-2** After 9 PM: same flow, Home shows "Registered until 10:00 AM", no pushes overnight, due push at 9:50 AM.
+  - How: Register once after 9 PM Eastern; check Home; check the phone at 9:50 AM.
+  - Result:
+  - Notes:
+- [ ] **T-AC-3** Forced checkbox: banner shows "Waiting for the human check…", one tap on the Turnstile checkbox, then auto-submit.
+  - How: Toggle airplane mode on and off before opening the renew screen, or use a VPN; Turnstile usually falls back to the checkbox variant.
+  - Result:
+  - Notes:
+- [ ] **T-AC-4** Missing Register control: banner shows "ParkEaz changed their page. Fill it in by hand."; nothing else happens.
+  - How: Safari Web Inspector on the dev build, delete the Register button before the token appears.
+  - Result:
+  - Notes:
+- [ ] **T-AC-5** Blocked challenge: after 90 s the banner shows "Tap Register To Park"; a manual tap still submits once the widget later succeeds.
+  - How: Block `challenges.cloudflare.com` (Pi-hole or a hosts entry on the dev proxy) for the first 90 s.
+  - Result:
+  - Notes:
+- [ ] **T-AC-6** Background on checkout for 6 minutes, foreground: page reloads, flow completes, exactly one registration in `renewalLogs`.
+  - Result:
+  - Notes:
+- [ ] **T-AC-7** `TZ=UTC npx jest && TZ=America/New_York npx jest` both pass (CI runs both).
+  - Result:
+  - Notes:
+- [ ] **T-AC-8** Sentry shows `renew_checkout` (`submit`, `msToToken`, `durationParsed`) and `renew_result` (`parkEndSource`) with no token, email, phone, or guest code.
+  - Result:
+  - Notes:
+
+Carry-forward: capture live `/checkout` and `/successful_transaction` (daytime and after 9 PM), scrub email, phone, plate, and guest code, replace the synthetic fixtures, re-run `npx jest src/parkeaz`; confirm the Register control selector and the `cf-turnstile-response` input name against the live markup. Open question from the spec: what ParkEaz gives for a registration between 8 AM and 10 AM.

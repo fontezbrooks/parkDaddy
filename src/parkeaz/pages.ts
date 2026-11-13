@@ -1,15 +1,29 @@
-import { REGISTRATION_MS } from "@/src/domain/renewal";
+import {
+  MAX_COVERAGE_MS,
+  PARK_END_SLACK_MS,
+  modelCoverageEnd,
+  type CoverageEndSource,
+} from "@/src/domain/renewal";
+import { easternWallClockToMs } from "@/src/domain/easternTime";
 
 export const PARKEAZ_ORIGIN = "https://paid.parkeaz.com";
 export const PARKEAZ_START_URL =
   PARKEAZ_ORIGIN + "/paid?zone=622&propertyid=202";
 export const ZONE = "622";
 
-const EASTERN_TZ = "America/New_York";
-// A page time is trusted only inside (now, now + 2h + slack].
-const PARK_END_SLACK_MS = 15 * 60 * 1000;
+// A page time is trusted only inside (now, now + MAX_COVERAGE_MS + slack].
 const PARK_END_PATTERN =
   /\b(?:valid until|ends|expires|parkend)\b\D{0,40}?(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/i;
+// Checkout advertises the product length as "Time: 9 hours 44 minutes".
+const CHECKOUT_DURATION_PATTERN =
+  /\bTime:\s*(?:(\d+)\s*hours?)?\s*(?:(\d+)\s*minutes?)?/i;
+
+export type AutofillResult =
+  | "applied"
+  | "skipped"
+  | "waiting"
+  | "submitted"
+  | "timeout";
 
 export type ParkEazPage =
   | "paid"
@@ -47,8 +61,11 @@ export function detectPage(url: string): ParkEazPage {
 const SCRIPT_PRELUDE = `
   var CFG = __CONFIG__;
   var V = CFG.values;
+  function postRaw(obj) {
+    window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+  }
   function post(result) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: "autofill", page: CFG.page, result: result }));
+    postRaw({ type: "autofill", page: CFG.page, result: result });
   }
   function byId(id) { return document.getElementById(id); }
   function fire(el, type) {
@@ -95,9 +112,47 @@ const SELECT_PRODUCT_BODY = `
   byId("guestcode").form.submit();
 `;
 
+// Checkout carries Cloudflare Turnstile. The page's own hidden input fills
+// with a token once the challenge passes on this device; we only watch for
+// that and then press the site's Register control, once. We never touch the
+// widget. Without a token for 90 s the user taps Register by hand.
+const CHECKOUT_BODY = `
+  if (!V.guestCode) { post("skipped"); return; }
+  post("waiting");
+  var text = document.body.innerText || document.body.textContent || "";
+  var m = ${CHECKOUT_DURATION_PATTERN.toString()}.exec(text);
+  if (m && (m[1] || m[2])) {
+    var durationMs = ((Number(m[1] || 0) * 60) + Number(m[2] || 0)) * 60000;
+    if (durationMs > 0) postRaw({ type: "checkout_info", durationMs: durationMs });
+  }
+  function findRegister() {
+    var els = document.querySelectorAll("button, input[type=submit]");
+    for (var i = 0; i < els.length; i++) {
+      var label = els[i].textContent || els[i].value || "";
+      if (/register to park/i.test(label)) return els[i];
+    }
+    return null;
+  }
+  var started = Date.now();
+  var timer = setInterval(function () {
+    if (window.__parkdaddySubmitted) { clearInterval(timer); return; }
+    var elapsed = Date.now() - started;
+    var register = findRegister();
+    if (!register && elapsed >= 2000) { clearInterval(timer); post("skipped"); return; }
+    if (elapsed >= 90000) { clearInterval(timer); post("timeout"); return; }
+    var token = document.querySelector('input[name="cf-turnstile-response"]');
+    if (!token || !token.value || !register || register.disabled) return;
+    window.__parkdaddySubmitted = true;
+    clearInterval(timer);
+    post("submitted");
+    register.click();
+  }, 250);
+`;
+
 const PAGE_BODIES: Partial<Record<ParkEazPage, string>> = {
   paid: PAID_BODY,
   select_product: SELECT_PRODUCT_BODY,
+  checkout: CHECKOUT_BODY,
 };
 
 export function buildInjection(
@@ -119,47 +174,37 @@ export const SUCCESS_PROBE_SCRIPT = `(function () {
   }));
 })(); true;`;
 
-// Offset (UTC minus Eastern wall clock) at a given instant, independent of device zone.
-function getEasternOffsetMs(instantMs: number): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: EASTERN_TZ,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(instantMs));
-  const get = (type: string) =>
-    Number(parts.find((p) => p.type === type)?.value);
-  const wallAsUtc = Date.UTC(
-    get("year"),
-    get("month") - 1,
-    get("day"),
-    get("hour"),
-    get("minute"),
-    get("second"),
+export function parseCheckoutDuration(text: string): number | null {
+  const m = CHECKOUT_DURATION_PATTERN.exec(text);
+  if (!m || (!m[1] && !m[2])) return null;
+  const minutes = Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0);
+  return minutes > 0 ? minutes * 60_000 : null;
+}
+
+function isPlausibleEnd(candidate: number | null | undefined, now: number) {
+  return (
+    typeof candidate === "number" &&
+    Number.isFinite(candidate) &&
+    now < candidate &&
+    candidate <= now + MAX_COVERAGE_MS + PARK_END_SLACK_MS
   );
-  return Math.floor(instantMs / 1000) * 1000 - wallAsUtc;
 }
 
-function easternWallClockToMs(wallAsUtcMs: number): number {
-  const first = wallAsUtcMs + getEasternOffsetMs(wallAsUtcMs);
-  return wallAsUtcMs + getEasternOffsetMs(first);
-}
-
+// Coverage end, best source first: the success page's own time, the
+// duration the checkout page advertised, then the clock model.
 export function parsePageParkEnd(
   text: string,
   now: number,
-): { parkEnd: number; source: "page" | "fallback" } {
-  const parkEnd = matchParkEnd(text);
-  const isPlausible =
-    parkEnd !== null &&
-    now < parkEnd &&
-    parkEnd <= now + REGISTRATION_MS + PARK_END_SLACK_MS;
-  if (isPlausible) return { parkEnd, source: "page" };
-  return { parkEnd: now + REGISTRATION_MS, source: "fallback" };
+  expectedEnd?: number | null,
+): { parkEnd: number; source: CoverageEndSource } {
+  const pageEnd = matchParkEnd(text);
+  if (isPlausibleEnd(pageEnd, now)) {
+    return { parkEnd: pageEnd as number, source: "page" };
+  }
+  if (isPlausibleEnd(expectedEnd, now)) {
+    return { parkEnd: expectedEnd as number, source: "checkout" };
+  }
+  return { parkEnd: modelCoverageEnd(now), source: "model" };
 }
 
 function matchParkEnd(text: string): number | null {

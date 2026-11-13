@@ -108,7 +108,8 @@ export default function ExtendDurationScreen() {
             <Text
               style={[typography.bodySm, { color: colors.onSurfaceVariant }]}
             >
-              That adds 24 hours. You&apos;ll still tap to renew every 2 hours.
+              That adds 24 hours. You&apos;ll still tap to renew every 2 hours,
+              until 10 AM after 9 PM.
             </Text>
           </View>
         )}

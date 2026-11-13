@@ -6,6 +6,8 @@ import {
   parseWebViewMessage,
   isFatalSaveError,
   breadcrumbResultFor,
+  checkoutSubmitFor,
+  isReloadable,
   shouldLoadRequest,
   httpErrorEvent,
   type RenewFlowState,
@@ -32,10 +34,165 @@ test("autofill skipped is recorded and banner asks for manual entry", () => {
   expect(s).toEqual({ step: "page", page: "paid", autofill: "skipped" });
   expect(bannerText(s)).toBe("ParkEaz changed their page. Fill it in by hand.");
 });
-test("checkout banner tells the user to tap Register To Park", () => {
+test("checkout banner waits for the human check, then shows Registering", () => {
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  expect(bannerText(s)).toBe("Waiting for the human check…");
+  s = renewFlowReducer(s, {
+    type: "autofill",
+    page: "checkout",
+    result: "waiting",
+  });
+  expect(bannerText(s)).toBe("Waiting for the human check…");
+  s = renewFlowReducer(s, {
+    type: "autofill",
+    page: "checkout",
+    result: "submitted",
+  });
+  expect(bannerText(s)).toBe("Registering…");
+});
+test("checkout timeout and skipped banners", () => {
+  const base = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
   expect(
-    bannerText({ step: "page", page: "checkout", autofill: "pending" }),
+    bannerText(
+      renewFlowReducer(base, {
+        type: "autofill",
+        page: "checkout",
+        result: "timeout",
+      }),
+    ),
   ).toBe("Tap Register To Park");
+  expect(
+    bannerText(
+      renewFlowReducer(base, {
+        type: "autofill",
+        page: "checkout",
+        result: "skipped",
+      }),
+    ),
+  ).toBe("ParkEaz changed their page. Fill it in by hand.");
+});
+test("checkout_info appends Covers until in Eastern time", () => {
+  const at = Date.UTC(2026, 10, 13, 5, 15); // 00:15 EST
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  s = renewFlowReducer(s, {
+    type: "checkout_info",
+    durationMs: (9 * 60 + 45) * 60_000,
+    now: at,
+  });
+  expect(bannerText(s)).toBe(
+    "Waiting for the human check… · Covers until 10:00 AM",
+  );
+});
+test("checkout_info is ignored off the checkout page", () => {
+  const s = renewFlowReducer(loading, {
+    type: "checkout_info",
+    durationMs: 1,
+    now: 0,
+  });
+  expect(s).toEqual({ step: "loading" });
+});
+test("success page uses checkout expectedEnd when its own text has no time", () => {
+  const at = Date.UTC(2026, 10, 13, 5, 15);
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  s = renewFlowReducer(s, {
+    type: "checkout_info",
+    durationMs: 3_600_000,
+    now: at,
+  });
+  s = renewFlowReducer(s, {
+    type: "success_page",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+    text: "Thanks",
+    now: at,
+  });
+  expect(s).toMatchObject({
+    step: "saving",
+    parkEnd: at + 3_600_000,
+    parkEndSource: "checkout",
+  });
+});
+test("expectedEnd survives the navigated event between checkout and success", () => {
+  const at = Date.UTC(2026, 10, 13, 5, 15);
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  s = renewFlowReducer(s, {
+    type: "checkout_info",
+    durationMs: 3_600_000,
+    now: at,
+  });
+  // The hook dispatches navigated(success) before the probe posts.
+  s = renewFlowReducer(s, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+  });
+  s = renewFlowReducer(s, {
+    type: "success_page",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+    text: "Thanks",
+    now: at,
+  });
+  expect(s).toMatchObject({
+    step: "saving",
+    parkEnd: at + 3_600_000,
+    parkEndSource: "checkout",
+  });
+});
+describe("isReloadable", () => {
+  test.each([
+    [{ step: "loading" }, false],
+    [{ step: "page", page: "paid", autofill: "pending" }, true],
+    [{ step: "page", page: "checkout", autofill: "waiting" }, true],
+    [{ step: "page", page: "checkout", autofill: "submitted" }, false],
+    [{ step: "page", page: "success", autofill: "pending" }, false],
+    [{ step: "done" }, false],
+  ] as [RenewFlowState, boolean][])("%o -> %p", (state, expected) => {
+    expect(isReloadable(state)).toBe(expected);
+  });
+});
+test("success page with no sources uses the daytime model", () => {
+  const at = Date.UTC(2026, 10, 13, 19, 0); // 2 PM EST
+  const s = renewFlowReducer(loading, {
+    type: "success_page",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+    text: "Thanks",
+    now: at,
+  });
+  expect(s).toMatchObject({
+    step: "saving",
+    parkEnd: at + 2 * 3_600_000,
+    parkEndSource: "model",
+  });
+});
+test("autofill events after submitted do not change state", () => {
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  s = renewFlowReducer(s, {
+    type: "autofill",
+    page: "checkout",
+    result: "submitted",
+  });
+  const again = renewFlowReducer(s, {
+    type: "autofill",
+    page: "checkout",
+    result: "waiting",
+  });
+  expect(again).toBe(s);
 });
 test("ErrorMessage in URL becomes parkeaz_error with decoded text", () => {
   expect(
@@ -64,18 +221,20 @@ test("success page with parkid and parkend enters saving", () => {
     parkEndSource: "page",
   });
 });
-test("success page without parkend uses fallback", () => {
+test("success page without parkend uses the clock model", () => {
   const s = renewFlowReducer(loading, {
     type: "success_page",
     url: "https://x/successful_transaction?parkid=7",
     text: "ok",
     now,
   });
+  // `now` is 2027-01-15T08:00Z = 03:00 EST, inside the overnight window, so
+  // the model ends at 10:00 AM EST that day.
   expect(s).toMatchObject({
     step: "saving",
     parkId: "7",
-    parkEnd: now + 7_200_000,
-    parkEndSource: "fallback",
+    parkEnd: Date.UTC(2027, 0, 15, 15, 0),
+    parkEndSource: "model",
   });
 });
 test("save_failed keeps the values and banner shows the confirmation id", () => {
@@ -267,10 +426,10 @@ describe("injectionFor", () => {
       injectionFor("https://paid.parkeaz.com/paid?ErrorMessage=Nope", values),
     ).toBeNull();
   });
-  test("injects nothing on checkout", () => {
-    expect(
-      injectionFor("https://paid.parkeaz.com/checkout", values),
-    ).toBeNull();
+  test("injects the Turnstile watcher on checkout", () => {
+    const script = injectionFor("https://paid.parkeaz.com/checkout", values);
+    expect(script).toContain("cf-turnstile-response");
+    expect(script).toContain("register to park");
   });
 });
 
@@ -302,6 +461,63 @@ describe("parseWebViewMessage", () => {
   ])("rejects malformed message %s", (data) => {
     expect(parseWebViewMessage(data, now)).toBeNull();
   });
+});
+
+describe("parseWebViewMessage additions", () => {
+  test.each(["waiting", "submitted", "timeout"])(
+    "accepts autofill result %s",
+    (result) => {
+      expect(
+        parseWebViewMessage(
+          JSON.stringify({ type: "autofill", page: "checkout", result }),
+          1,
+        ),
+      ).toEqual({ type: "autofill", page: "checkout", result });
+    },
+  );
+  test("accepts checkout_info with a positive finite durationMs", () => {
+    expect(
+      parseWebViewMessage(
+        JSON.stringify({ type: "checkout_info", durationMs: 1200 }),
+        7,
+      ),
+    ).toEqual({ type: "checkout_info", durationMs: 1200, now: 7 });
+  });
+  test.each([0, -1, "9", null, Infinity])(
+    "rejects checkout_info durationMs %p",
+    (durationMs) => {
+      expect(
+        parseWebViewMessage(
+          JSON.stringify({ type: "checkout_info", durationMs }),
+          7,
+        ),
+      ).toBeNull();
+    },
+  );
+});
+
+describe("checkoutSubmitFor", () => {
+  test.each([
+    ["submitted", "auto"],
+    ["timeout", "timeout"],
+    ["skipped", "skipped"],
+    ["waiting", null],
+    ["applied", null],
+  ] as const)("%s -> %p", (result, expected) => {
+    expect(checkoutSubmitFor(result)).toBe(expected);
+  });
+});
+
+test("shouldLoadRequest allows challenges.cloudflare.com top-frame on iOS", () => {
+  expect(
+    shouldLoadRequest(
+      {
+        url: "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/x",
+        isTopFrame: true,
+      },
+      "ios",
+    ),
+  ).toBe("allow");
 });
 
 describe("isFatalSaveError", () => {

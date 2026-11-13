@@ -1,0 +1,31 @@
+# gitleaks config: default rules plus project-specific ones.
+title = "parkDaddy"
+
+[extend]
+useDefault = true
+
+# ParkEaz property guest code. Only ever referenced by env var name; the
+# value lives in the Convex deployment env (PARKEAZ_GUEST_CODE). The value
+# group is deliberately case-sensitive uppercase so identifiers such as
+# `guestCode: string` do not match.
+[[rules]]
+id = "parkeaz-guest-code"
+description = "ParkEaz guest code value committed"
+regex = '''(?i:parkeaz_guest_code|guest[\s_-]?code)\s*[:=]\s*["'`]?([A-Z0-9]{4,12})\b'''
+secretGroup = 1
+keywords = ["guest", "PARKEAZ_GUEST_CODE"]
+[rules.allowlist]
+regexes = ['''\b(CODE1|ABCD12|REDACTED|TEST[A-Z0-9]*)\b''']
+
+[allowlist]
+paths = [
+  '''node_modules/''',
+  '''^\.env''',
+  '''convex/\.env''',
+  '''^\.superpowers/''',
+  '''^ios/''',
+  '''^android/''',
+  '''package-lock\.json$''',
+  '''convex/_generated/''',
+  '''src/parkeaz/__fixtures__/''',
+]

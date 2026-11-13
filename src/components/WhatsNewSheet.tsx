@@ -21,11 +21,7 @@ const BULLETS: { title: string; body: string }[] = [
   },
   {
     title: "Renewals now take one tap",
-    body: "ParkEaz added a human check. We'll ping you 10 minutes before each 2-hour window ends; tap once and you're covered.",
-  },
-  {
-    title: "Add your guest code once",
-    body: "Open Settings and enter your building's ParkEaz guest code. Renewals need it.",
+    body: "ParkEaz added a human check. We'll ping you 10 minutes before each window ends; the app taps Register for you once the check passes.",
   },
   {
     title: "Reliable notifications",

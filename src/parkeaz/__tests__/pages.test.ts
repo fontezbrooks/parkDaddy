@@ -8,10 +8,12 @@ import {
   detectPage,
   buildInjection,
   parsePageParkEnd,
+  parseCheckoutDuration,
   parseParkId,
   parseErrorMessage,
   PARKEAZ_START_URL,
 } from "../pages";
+import { MAX_COVERAGE_MS, PARK_END_SLACK_MS } from "@/src/domain/renewal";
 
 const fixture = (name: string) =>
   readFileSync(join(__dirname, "..", "__fixtures__", name), "utf8");
@@ -26,11 +28,12 @@ const values = {
 
 function runInjection(
   html: string,
-  page: "paid" | "select_product",
+  page: "paid" | "select_product" | "checkout",
   setup?: () => void,
   injected = values,
 ) {
   document.documentElement.innerHTML = html;
+  delete (window as any).__parkdaddySubmitted; // a real page load resets it
   const posted: unknown[] = [];
   (window as any).ReactNativeWebView = {
     postMessage: (m: string) => posted.push(JSON.parse(m)),
@@ -158,10 +161,168 @@ describe("buildInjection on /select_product", () => {
   });
 });
 
-test("buildInjection returns null for checkout, success, other", () => {
-  expect(buildInjection("checkout", values)).toBeNull();
+test("buildInjection returns null for success and other", () => {
   expect(buildInjection("success", values)).toBeNull();
   expect(buildInjection("other", values)).toBeNull();
+});
+
+describe("buildInjection on /checkout (Turnstile)", () => {
+  const html = fixture("checkout.html");
+  const tokenInput = () =>
+    document.querySelector(
+      'input[name="cf-turnstile-response"]',
+    ) as HTMLInputElement;
+  const setToken = (v: string) => {
+    tokenInput().value = v;
+  };
+  const registerButton = () =>
+    Array.from(
+      document.querySelectorAll("button, input[type=submit]"),
+    ).find((el) =>
+      /register to park/i.test(
+        (el as HTMLElement).textContent || (el as HTMLInputElement).value || "",
+      ),
+    ) as HTMLButtonElement;
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test("posts waiting, then clicks Register exactly once when the token appears", () => {
+    const posted = runInjection(html, "checkout");
+    const click = jest.fn();
+    registerButton().click = click;
+    expect(posted[0]).toMatchObject({
+      type: "autofill",
+      page: "checkout",
+      result: "waiting",
+    });
+    jest.advanceTimersByTime(1000);
+    expect(click).not.toHaveBeenCalled();
+    setToken("tok_123");
+    jest.advanceTimersByTime(250);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(posted.at(-1)).toMatchObject({
+      type: "autofill",
+      page: "checkout",
+      result: "submitted",
+    });
+    jest.advanceTimersByTime(5000);
+    expect(click).toHaveBeenCalledTimes(1); // once-flag
+  });
+
+  test("keeps polling while Register is disabled, clicks once it is enabled", () => {
+    const posted = runInjection(html, "checkout", () => {
+      registerButton().disabled = true;
+    });
+    const click = jest.fn();
+    registerButton().click = click;
+    setToken("tok");
+    jest.advanceTimersByTime(2000);
+    expect(click).not.toHaveBeenCalled();
+    registerButton().disabled = false;
+    jest.advanceTimersByTime(250);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(posted.at(-1)).toMatchObject({ result: "submitted" });
+  });
+
+  test("posts timeout after 90 s without a token and stops polling", () => {
+    const posted = runInjection(html, "checkout");
+    const click = jest.fn();
+    registerButton().click = click;
+    jest.advanceTimersByTime(90_000);
+    expect(posted.at(-1)).toMatchObject({ result: "timeout" });
+    const count = posted.length;
+    setToken("late");
+    jest.advanceTimersByTime(2000);
+    expect(posted.length).toBe(count);
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  test("posts skipped when no Register control exists within 2 s", () => {
+    const posted = runInjection(html, "checkout", () =>
+      registerButton().remove(),
+    );
+    jest.advanceTimersByTime(2000);
+    expect(posted.at(-1)).toMatchObject({ result: "skipped" });
+  });
+
+  test("posts checkout_info with the advertised duration", () => {
+    const posted = runInjection(html, "checkout");
+    expect(posted).toContainEqual({
+      type: "checkout_info",
+      durationMs: (9 * 60 + 44) * 60 * 1000,
+    });
+  });
+
+  test("never submits without a guest code", () => {
+    const posted = runInjection(html, "checkout", undefined, {
+      ...values,
+      guestCode: "",
+    });
+    const click = jest.fn();
+    registerButton().click = click;
+    setToken("tok");
+    jest.advanceTimersByTime(1000);
+    expect(posted.at(-1)).toMatchObject({ result: "skipped" });
+    expect(click).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseCheckoutDuration", () => {
+  test.each([
+    ["Time: 9 hours 44 minutes", (9 * 60 + 44) * 60_000],
+    ["Time: 2 hours", 2 * 60 * 60_000],
+    ["Time: 1 hour", 60 * 60_000],
+    ["Time: 45 minutes", 45 * 60_000],
+    ["Time: 1 hour 1 minute", 61 * 60_000],
+    ["no time here", null],
+  ])("%p -> %p", (text, expected) => {
+    expect(parseCheckoutDuration(text)).toBe(expected);
+  });
+});
+
+describe("parsePageParkEnd precedence", () => {
+  const now = Date.UTC(2026, 10, 13, 5, 15); // 00:15 EST
+  test("page text wins when within 13h15m", () => {
+    const r = parsePageParkEnd(
+      "Parking valid until 2026-11-13 10:00:00",
+      now,
+      now + 60_000,
+    );
+    expect(r).toEqual({ parkEnd: Date.UTC(2026, 10, 13, 15, 0), source: "page" });
+  });
+  test("page text beyond 13h15m is ignored; checkout duration used", () => {
+    const r = parsePageParkEnd(
+      "Parking valid until 2026-11-14 10:00:00",
+      now,
+      now + 3_600_000,
+    );
+    expect(r).toEqual({ parkEnd: now + 3_600_000, source: "checkout" });
+  });
+  test("no page text, no checkout: clock model (00:15 -> 10:00 AM)", () => {
+    const r = parsePageParkEnd("Thank you", now);
+    expect(r).toEqual({ parkEnd: Date.UTC(2026, 10, 13, 15, 0), source: "model" });
+  });
+  test("fall-back night: 9:30 PM EDT to 10:00 AM EST is 13.5 h real time and still page", () => {
+    const fallBackNow = Date.UTC(2026, 10, 1, 1, 30); // 21:30 EDT 2026-10-31
+    const r = parsePageParkEnd(
+      "Parking valid until 2026-11-01 10:00:00",
+      fallBackNow,
+    );
+    expect(r).toEqual({ parkEnd: Date.UTC(2026, 10, 1, 15, 0), source: "page" });
+  });
+  test("fall-back night: the model itself stays inside the server bound", () => {
+    const fallBackNow = Date.UTC(2026, 10, 1, 1, 0); // 21:00 EDT, 14 h before 10 AM EST
+    const r = parsePageParkEnd("Thanks", fallBackNow);
+    expect(r.source).toBe("model");
+    expect(r.parkEnd - fallBackNow).toBeLessThanOrEqual(
+      MAX_COVERAGE_MS + PARK_END_SLACK_MS,
+    );
+  });
+  test("checkout expectedEnd in the past is ignored", () => {
+    const r = parsePageParkEnd("Thank you", now, now - 1);
+    expect(r.source).toBe("model");
+  });
 });
 
 describe("parsePageParkEnd", () => {
@@ -187,21 +348,29 @@ describe("parsePageParkEnd", () => {
   test.each([
     "valid until 12 noon 2026-10-31 21:07:15",
     "Receipt 2026-10-31 21:07:15",
-  ])("falls back for %s", (text) => {
+  ])("falls back to the daytime model for %s", (text) => {
     expect(parsePageParkEnd(text, now)).toEqual({
       parkEnd: now + 2 * 3600_000,
-      source: "fallback",
+      source: "model",
     });
   });
   test.each([
     ["a past time", "Parking valid until 2026-10-31 18:00:00"],
-    ["a time 3h ahead", "Parking valid until 2026-10-31 22:00:00"],
+    ["a time 14h ahead", "Parking valid until 2026-11-01 09:30:00"],
     ["a trigger word inside another word", "Weekends 2026-10-31 21:07:15"],
-  ])("falls back for %s", (_label, text) => {
+  ])("falls back to the daytime model for %s", (_label, text) => {
     expect(parsePageParkEnd(text, now)).toEqual({
       parkEnd: now + 2 * 3600_000,
-      source: "fallback",
+      source: "model",
     });
+  });
+  test("accepts a time 13h ahead across the DST fall-back (overnight product)", () => {
+    // now is 19:00 EDT on 2026-10-31; 07:00 EST on 2026-11-01 is 13 h later.
+    const result = parsePageParkEnd(
+      "Parking valid until 2026-11-01 07:00:00",
+      now,
+    );
+    expect(result).toEqual({ parkEnd: now + 13 * 3600_000, source: "page" });
   });
   test("accepts a time 2h15m ahead, the edge of the window", () => {
     const result = parsePageParkEnd(
@@ -213,10 +382,10 @@ describe("parsePageParkEnd", () => {
       source: "page",
     });
   });
-  test("falls back to now + 2h when no time is present", () => {
+  test("falls back to the daytime model when no time is present", () => {
     expect(parsePageParkEnd("Thanks for parking", now)).toEqual({
       parkEnd: now + 2 * 3600_000,
-      source: "fallback",
+      source: "model",
     });
   });
 });

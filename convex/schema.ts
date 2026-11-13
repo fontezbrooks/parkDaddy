@@ -11,6 +11,8 @@ export default defineSchema({
     notifyOnExpiry: v.boolean(),
     notifyOnSuccess: v.boolean(),
     mode: v.optional(v.union(v.literal("daily"), v.literal("extended"))),
+    // Legacy (3.3.0 pre-release): the guest code now comes from the Convex
+    // env via config.getGuestCode. Kept optional so existing docs validate.
     guestCode: v.optional(v.string()),
   }).index("by_clerk_id", ["clerkId"]),
 
@@ -62,8 +64,14 @@ export default defineSchema({
     parkEnd: v.optional(v.number()),
     error: v.optional(v.string()),
     source: v.optional(v.union(v.literal("server"), v.literal("client"))),
+    // "fallback" is the pre-3.3.0-release name for "model"; kept for old rows.
     parkEndSource: v.optional(
-      v.union(v.literal("page"), v.literal("fallback")),
+      v.union(
+        v.literal("page"),
+        v.literal("checkout"),
+        v.literal("model"),
+        v.literal("fallback"),
+      ),
     ),
   }).index("by_session", ["sessionId"]),
 

@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { normalizeGuestCode } from "../src/domain/renewal";
 
 export const getProfile = query({
   args: {},
@@ -72,27 +71,6 @@ export const updateNotificationPrefs = mutation({
       notifyOnExpiry: args.notifyOnExpiry,
       notifyOnSuccess: args.notifyOnSuccess,
     });
-  },
-});
-
-export const updateGuestCode = mutation({
-  args: { guestCode: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    if (!user) throw new Error("Profile not found");
-
-    const guestCode = normalizeGuestCode(args.guestCode);
-    if (guestCode === null) {
-      throw new Error("Guest code must be 4-12 letters or digits");
-    }
-
-    await ctx.db.patch(user._id, { guestCode });
   },
 });
 

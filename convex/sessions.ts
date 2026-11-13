@@ -6,6 +6,8 @@ import {
   DAILY_DURATION_MS,
   isDuplicateRegistration,
   normalizePlate,
+  MAX_COVERAGE_MS,
+  PARK_END_SLACK_MS,
 } from "../src/domain/renewal";
 import {
   cancelScheduled,
@@ -284,7 +286,12 @@ export const recordRegistration = mutation({
     parkId: v.string(),
     parkStart: v.number(),
     parkEnd: v.number(),
-    parkEndSource: v.union(v.literal("page"), v.literal("fallback")),
+    parkEndSource: v.union(
+      v.literal("page"),
+      v.literal("checkout"),
+      v.literal("model"),
+      v.literal("fallback"),
+    ),
   },
   handler: async (ctx, args) => {
     // Coded errors survive production redaction; the client keys on `code`.
@@ -302,7 +309,14 @@ export const recordRegistration = mutation({
         message: "Session is not active",
       });
     }
-    if (!args.parkId.trim() || args.parkEnd <= args.parkStart) {
+    // ParkEaz sells at most the overnight block (to 10 AM); anything longer
+    // is a parse error on the client, not a real registration.
+    const maxEnd = args.parkStart + MAX_COVERAGE_MS + PARK_END_SLACK_MS;
+    if (
+      !args.parkId.trim() ||
+      args.parkEnd <= args.parkStart ||
+      args.parkEnd > maxEnd
+    ) {
       throw new ConvexError({
         code: "invalid_registration",
         message: "Invalid registration",

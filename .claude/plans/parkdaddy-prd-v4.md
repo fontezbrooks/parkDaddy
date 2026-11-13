@@ -75,7 +75,7 @@ parkDaddy replaces this manual cycle. A guest registers once in the app, picks a
 | Clerk Publishable Key | `pk_test_ZnVubnktc3VuYmVhbS05NC5jbGVyay5hY2NvdW50cy5kZXYk` |
 | Clerk JWT Issuer | `https://funny-sunbeam-94.clerk.accounts.dev` |
 | Expo env prefix | `EXPO_PUBLIC_` |
-| Guest Code | Convex env var (currently `MTDJR7`, updated ~annually) |
+| Guest Code | Convex env var (currently `<guest code: Convex env PARKEAZ_GUEST_CODE>`, updated ~annually) |
 
 ---
 
@@ -93,12 +93,12 @@ Derived from captured Chrome DevTools network calls (`docs/Ponce Park Assist.md`
 **Step 1: `POST /checkout`**
 - Submits all registration data: plate, name, phone, email, guest code, zone, parkstart
 - Content-Type: `application/x-www-form-urlencoded`
-- Key fields: `product=3615`, `guestcode=MTDJR7`, `zone=622`, `zoneid=247`, `propertyid=202`, `plate=<PLATE>`, `parkstart=<YYYY-MM-DD+HH:MM:SS>`, `extension=0`
+- Key fields: `product=3615`, `guestcode=<guest code: Convex env PARKEAZ_GUEST_CODE>`, `zone=622`, `zoneid=247`, `propertyid=202`, `plate=<PLATE>`, `parkstart=<YYYY-MM-DD+HH:MM:SS>`, `extension=0`
 - Vehicle make/model/color are optional (ParkEaz accepts blank)
 
 **Step 2: `POST /charge`**
 - Confirms the transaction with parkstart/parkend, pricing ($0.00 via guest code)
-- Key fields: `producttime=120`, `totalcharge=0`, `stripeprice=0`, `guestcode=MTDJR7`
+- Key fields: `producttime=120`, `totalcharge=0`, `stripeprice=0`, `guestcode=<guest code: Convex env PARKEAZ_GUEST_CODE>`
 - `parkend` is calculated as parkstart + 2 hours (or overnight window)
 - Returns/sets `parkid` for confirmation step
 
@@ -111,7 +111,7 @@ Derived from captured Chrome DevTools network calls (`docs/Ponce Park Assist.md`
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Base URL | `https://paid.parkeaz.com` | Static |
-| Guest Code | `MTDJR7` | Convex env var `PARKEAZ_GUEST_CODE` |
+| Guest Code | `<guest code: Convex env PARKEAZ_GUEST_CODE>` | Convex env var `PARKEAZ_GUEST_CODE` |
 | Zone | `622` | Static |
 | Zone ID | `247` | Static |
 | Property ID | `202` | Static |

@@ -15,12 +15,7 @@ import Animated, {
 import * as Sentry from "@sentry/react-native";
 import { colors, typography, spacing, radius } from "@/src/theme";
 import { ActiveSessionHero } from "@/src/components/home/ActiveSessionHero";
-import {
-  coverageEndFor,
-  deriveSessionState,
-  GUEST_CODE_REQUIRED_MESSAGE,
-  hasGuestCode,
-} from "@/src/domain/renewal";
+import { coverageEndFor, deriveSessionState } from "@/src/domain/renewal";
 import { mapConvexError } from "@/src/utils/convexErrors";
 
 type ActiveSession = NonNullable<
@@ -36,17 +31,6 @@ function formatRelative(ms: number): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
-}
-
-// Renewals cannot submit without a guest code: send the user to Settings.
-function ensureGuestCode(
-  isGuestCodeSet: boolean,
-  setError: (message: string) => void,
-): boolean {
-  if (isGuestCodeSet) return true;
-  setError(GUEST_CODE_REQUIRED_MESSAGE);
-  router.push("/(tabs)/settings");
-  return false;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -90,22 +74,15 @@ function useNow(): number {
   return now;
 }
 
-function ActiveState({
-  session,
-  isGuestCodeSet,
-}: {
-  session: ActiveSession;
-  isGuestCodeSet: boolean;
-}) {
+function ActiveState({ session }: { session: ActiveSession }) {
   const now = useNow();
   const state = deriveSessionState(session, now);
   const [error, setError] = useState("");
 
   const openRenew = useCallback(() => {
-    if (!ensureGuestCode(isGuestCodeSet, setError)) return;
     setError("");
     router.push({ pathname: "/renew", params: { sessionId: session._id } });
-  }, [session._id, isGuestCodeSet]);
+  }, [session._id]);
 
   const endTime = new Date(coverageEndFor(session)).toLocaleTimeString([], {
     hour: "2-digit",
@@ -116,7 +93,7 @@ function ActiveState({
     <>
       {session.migratedFromExtendedAt ? (
         <InlineError
-          message={`Extended Stay is gone: ParkEaz now requires a tap every 2 hours. This session ends at ${endTime}.`}
+          message={`Extended Stay is gone: ParkEaz now requires a tap every 2 hours, until 10 AM after 9 PM. This session ends at ${endTime}.`}
         />
       ) : null}
       <ActiveSessionHero
@@ -143,7 +120,7 @@ function FirstTimerState() {
         Need to Park?
       </Text>
       <Text style={[typography.bodyLg, styles.firstTimerBody]}>
-        Add your plate and we&apos;ll ping you before each 2-hour window ends.
+        Add your plate and we&apos;ll ping you before each window ends.
         One tap keeps you covered.
       </Text>
       <View style={styles.actions}>
@@ -195,7 +172,7 @@ function SingleVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          24 hours · one tap every 2 hours
+          24 hours · one tap every 2 hours, until 10 AM after 9 PM
         </Text>
       </View>
 
@@ -266,7 +243,7 @@ function MultiVehicleState({
           <View style={styles.plateUnderline} />
         </View>
         <Text style={[typography.bodyMd, styles.locationText]}>
-          24 hours · one tap every 2 hours
+          24 hours · one tap every 2 hours, until 10 AM after 9 PM
         </Text>
       </View>
 
@@ -338,11 +315,9 @@ function MultiVehicleState({
 function InactiveState({
   lastParkedPlate,
   lastParkedAt,
-  isGuestCodeSet,
 }: {
   lastParkedPlate: string | null;
   lastParkedAt: number | null;
-  isGuestCodeSet: boolean;
 }) {
   const vehicles = useQuery(api.vehicles.list) ?? [];
   const createSession = useMutation(api.sessions.create);
@@ -351,7 +326,6 @@ function InactiveState({
 
   const handlePark = useCallback(
     async (plate: string) => {
-      if (!ensureGuestCode(isGuestCodeSet, setError)) return;
       setLoadingPlate(plate);
       setError("");
       try {
@@ -367,7 +341,7 @@ function InactiveState({
         setLoadingPlate(null);
       }
     },
-    [createSession, isGuestCodeSet],
+    [createSession],
   );
 
   if (vehicles.length === 0) {
@@ -431,10 +405,7 @@ function InlineError({ message }: { message: string }) {
 export default function HomeScreen() {
   const session = useQuery(api.sessions.getActive);
   const lastParked = useQuery(api.sessions.getLastParked);
-  const profile = useQuery(api.users.getProfile);
-  const isLoading =
-    session === undefined || lastParked === undefined || profile === undefined;
-  const isGuestCodeSet = hasGuestCode(profile);
+  const isLoading = session === undefined || lastParked === undefined;
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -444,10 +415,9 @@ export default function HomeScreen() {
         <InactiveState
           lastParkedPlate={lastParked?.plate ?? null}
           lastParkedAt={lastParked?.endedAt ?? null}
-          isGuestCodeSet={isGuestCodeSet}
         />
       ) : (
-        <ActiveState session={session} isGuestCodeSet={isGuestCodeSet} />
+        <ActiveState session={session} />
       )}
     </SafeAreaView>
   );

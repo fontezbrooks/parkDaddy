@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as config from "../config.js";
 import type * as cronHandlers from "../cronHandlers.js";
 import type * as crons from "../crons.js";
 import type * as notifications from "../notifications.js";
@@ -25,6 +26,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  config: typeof config;
   cronHandlers: typeof cronHandlers;
   crons: typeof crons;
   notifications: typeof notifications;

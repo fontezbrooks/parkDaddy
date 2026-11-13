@@ -130,7 +130,7 @@ registration covers 2 hours (`lastParkStart` to `lastParkEnd`).
 - FR-16 On success the screen calls `sessions.recordRegistration(sessionId,
   parkId, parkStart, parkEnd, parkEndSource)` and navigates back to Home, which
   shows Registered until HH:MM.
-- FR-17 Guest code: new optional field `users.guestCode`. Entered once in
+- FR-17 (superseded 2026-11-13, before release: the guest code is property-wide and comes from the Convex env var `PARKEAZ_GUEST_CODE` via `config.getGuestCode`; users never enter it; `users.guestCode` is a dead optional field.) Original text: Guest code: new optional field `users.guestCode`. Entered once in
   Settings (and prompted in profile-setup if empty). Read by the client through
   `users.getProfile`. The `PARKEAZ_GUEST_CODE` env var is no longer read by any
   function. The code never appears in the app bundle.
