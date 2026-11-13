@@ -63,7 +63,7 @@ Two facts from the 2026-11-13 device run change the renewal model:
 
 ### Coverage end (`src/parkeaz/pages.ts`, `src/domain/renewal.ts`)
 
-- FR-11 `parsePageParkEnd(text, now, expectedEnd?)` trusts a page value when `now < parkEnd <= now + MAX_COVERAGE_MS + PARK_END_SLACK_MS`, with `MAX_COVERAGE_MS = 13 h`.
+- FR-11 `parsePageParkEnd(text, now, expectedEnd?)` trusts a page value when `now < parkEnd <= now + MAX_COVERAGE_MS + PARK_END_SLACK_MS`, with `MAX_COVERAGE_MS = 14 h` (13 h of wall clock from 9 PM to 10 AM is 14 h of real time on the DST fall-back night; amended 2026-11-13 after review).
 - FR-12 New pure function `modelCoverageEnd(now)` in `src/domain/renewal.ts`: in Eastern time, if the hour is 21 or later, or earlier than 10, return the next 10:00 AM Eastern as epoch ms; otherwise return `now + REGISTRATION_MS`. Uses the same `Intl`-based Eastern conversion as `pages.ts` (move the helpers to the domain module so both import them).
 - FR-13 `REGISTRATION_MS` stays 2 h and is used only by the daytime branch of the model and by copy.
 

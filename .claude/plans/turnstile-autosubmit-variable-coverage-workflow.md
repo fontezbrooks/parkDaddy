@@ -18,7 +18,7 @@
 - Values enter scripts only through the single `__CONFIG__` substitution via `JSON.stringify` with a replacer function; never concatenate user values.
 - The script never touches the Turnstile widget. It reads `input[name="cf-turnstile-response"]` and clicks the site's own Register control. Nothing else.
 - Poll interval 250 ms. Timeout 90 s. Register-control discovery deadline 2 s. One click per page load, guarded by `window.__parkdaddySubmitted`.
-- `MAX_COVERAGE_MS = 13 * 60 * 60 * 1000`. `PARK_END_SLACK_MS = 15 * 60 * 1000`. `REGISTRATION_MS` stays `2 * 60 * 60 * 1000`.
+- `MAX_COVERAGE_MS = 14 * 60 * 60 * 1000` (amended from 13 h in the final review: the overnight block is 14 h of real time on the DST fall-back night). `PARK_END_SLACK_MS = 15 * 60 * 1000`. `REGISTRATION_MS` stays `2 * 60 * 60 * 1000`.
 - Overnight window: Eastern hour `>= 21` or `< 10` ends at the next 10:00 AM Eastern wall-clock, computed by walking the Eastern calendar date (DST-safe).
 - `parkEndSource` values: `"page" | "checkout" | "model"`. `"fallback"` stays accepted by the Convex schema and the mutation validator for old rows and old clients; new code never emits it.
 - Banner copy, exact: "Waiting for the human check…", "Registering…", "Tap Register To Park", "ParkEaz changed their page. Fill it in by hand.", suffix " · Covers until {time}" where `{time}` is Eastern `h:mm AM/PM`.

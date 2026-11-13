@@ -7,6 +7,7 @@ import {
   isFatalSaveError,
   breadcrumbResultFor,
   checkoutSubmitFor,
+  isReloadable,
   shouldLoadRequest,
   httpErrorEvent,
   type RenewFlowState,
@@ -120,6 +121,46 @@ test("success page uses checkout expectedEnd when its own text has no time", () 
     step: "saving",
     parkEnd: at + 3_600_000,
     parkEndSource: "checkout",
+  });
+});
+test("expectedEnd survives the navigated event between checkout and success", () => {
+  const at = Date.UTC(2026, 10, 13, 5, 15);
+  let s = renewFlowReducer(loading, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/checkout",
+  });
+  s = renewFlowReducer(s, {
+    type: "checkout_info",
+    durationMs: 3_600_000,
+    now: at,
+  });
+  // The hook dispatches navigated(success) before the probe posts.
+  s = renewFlowReducer(s, {
+    type: "navigated",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+  });
+  s = renewFlowReducer(s, {
+    type: "success_page",
+    url: "https://paid.parkeaz.com/successful_transaction?parkid=9",
+    text: "Thanks",
+    now: at,
+  });
+  expect(s).toMatchObject({
+    step: "saving",
+    parkEnd: at + 3_600_000,
+    parkEndSource: "checkout",
+  });
+});
+describe("isReloadable", () => {
+  test.each([
+    [{ step: "loading" }, false],
+    [{ step: "page", page: "paid", autofill: "pending" }, true],
+    [{ step: "page", page: "checkout", autofill: "waiting" }, true],
+    [{ step: "page", page: "checkout", autofill: "submitted" }, false],
+    [{ step: "page", page: "success", autofill: "pending" }, false],
+    [{ step: "done" }, false],
+  ] as [RenewFlowState, boolean][])("%o -> %p", (state, expected) => {
+    expect(isReloadable(state)).toBe(expected);
   });
 });
 test("success page with no sources uses the daytime model", () => {

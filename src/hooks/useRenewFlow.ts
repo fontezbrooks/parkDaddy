@@ -21,6 +21,7 @@ import {
   injectionFor,
   isFatalSaveError,
   isParkEazOrigin,
+  isReloadable,
   parseWebViewMessage,
   renewFlowReducer,
   type RenewFlowEvent,
@@ -275,11 +276,7 @@ export function useRenewFlow(
     state.step !== "done",
   );
   useRenewTelemetry(state, webView.startedAt);
-  // Never reload a success page before its probe has captured the parkid.
-  useForegroundReload(
-    state.step === "page" && state.page !== "success",
-    webView.reload,
-  );
+  useForegroundReload(isReloadable(state), webView.reload);
 
   const { reload } = webView;
   const onRetry = useCallback(() => {

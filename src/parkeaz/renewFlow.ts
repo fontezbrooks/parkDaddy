@@ -63,7 +63,27 @@ function onNavigated(state: RenewFlowState, url: string): RenewFlowState {
   if (isRegistered(state) || state.step === "load_error") return state;
   const message = parseErrorMessage(url);
   if (message) return { step: "parkeaz_error", message };
-  return { step: "page", page: detectPage(url), autofill: "pending" };
+  // The advertised coverage end rides along to the success page, whose
+  // navigated event arrives before its probe.
+  const expectedEnd = state.step === "page" ? state.expectedEnd : undefined;
+  return {
+    step: "page",
+    page: detectPage(url),
+    autofill: "pending",
+    ...(expectedEnd === undefined ? {} : { expectedEnd }),
+  };
+}
+
+// Returning from the background reloads the start page, except where a
+// reload could lose a registration: on the success page before its probe,
+// and after the script has already pressed Register (the /charge POST may
+// be in flight and the once-flag dies with the discarded page).
+export function isReloadable(state: RenewFlowState): boolean {
+  return (
+    state.step === "page" &&
+    state.page !== "success" &&
+    state.autofill !== "submitted"
+  );
 }
 
 function onAutofill(
@@ -93,10 +113,7 @@ function onSuccessPage(
   const parkId = parseParkId(event.url);
   if (!parkId)
     return { step: "parkeaz_error", message: MISSING_PARK_ID_MESSAGE };
-  const expectedEnd =
-    state.step === "page" && state.page === "checkout"
-      ? state.expectedEnd
-      : undefined;
+  const expectedEnd = state.step === "page" ? state.expectedEnd : undefined;
   const { parkEnd, source } = parsePageParkEnd(
     event.text,
     event.now,

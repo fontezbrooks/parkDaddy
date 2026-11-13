@@ -13,6 +13,7 @@ import {
   parseErrorMessage,
   PARKEAZ_START_URL,
 } from "../pages";
+import { MAX_COVERAGE_MS, PARK_END_SLACK_MS } from "@/src/domain/renewal";
 
 const fixture = (name: string) =>
   readFileSync(join(__dirname, "..", "__fixtures__", name), "utf8");
@@ -301,6 +302,22 @@ describe("parsePageParkEnd precedence", () => {
   test("no page text, no checkout: clock model (00:15 -> 10:00 AM)", () => {
     const r = parsePageParkEnd("Thank you", now);
     expect(r).toEqual({ parkEnd: Date.UTC(2026, 10, 13, 15, 0), source: "model" });
+  });
+  test("fall-back night: 9:30 PM EDT to 10:00 AM EST is 13.5 h real time and still page", () => {
+    const fallBackNow = Date.UTC(2026, 10, 1, 1, 30); // 21:30 EDT 2026-10-31
+    const r = parsePageParkEnd(
+      "Parking valid until 2026-11-01 10:00:00",
+      fallBackNow,
+    );
+    expect(r).toEqual({ parkEnd: Date.UTC(2026, 10, 1, 15, 0), source: "page" });
+  });
+  test("fall-back night: the model itself stays inside the server bound", () => {
+    const fallBackNow = Date.UTC(2026, 10, 1, 1, 0); // 21:00 EDT, 14 h before 10 AM EST
+    const r = parsePageParkEnd("Thanks", fallBackNow);
+    expect(r.source).toBe("model");
+    expect(r.parkEnd - fallBackNow).toBeLessThanOrEqual(
+      MAX_COVERAGE_MS + PARK_END_SLACK_MS,
+    );
   });
   test("checkout expectedEnd in the past is ignored", () => {
     const r = parsePageParkEnd("Thank you", now, now - 1);

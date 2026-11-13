@@ -7,8 +7,9 @@ export const EXPIRY_WARNING_MS = 15 * 60 * 1000;
 export const TOKEN_WINDOW_MS = 2 * 60 * 1000;
 
 // ParkEaz sells 2 h by day and, from 9 PM, a single block that ends at a
-// fixed 10:00 AM Eastern. A page value is trusted up to this span plus slack.
-export const MAX_COVERAGE_MS = 13 * 60 * 60 * 1000;
+// fixed 10:00 AM Eastern: 13 h on the wall clock, 14 h of real time on the
+// DST fall-back night. A page value is trusted up to this span plus slack.
+export const MAX_COVERAGE_MS = 14 * 60 * 60 * 1000;
 export const PARK_END_SLACK_MS = 15 * 60 * 1000;
 export const OVERNIGHT_START_HOUR = 21;
 export const OVERNIGHT_END_HOUR = 10;
