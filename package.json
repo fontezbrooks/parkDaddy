@@ -17,7 +17,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "test": "jest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "eas-build-pre-install": "npm install -g pnpm@12.18.0"
   },
   "dependencies": {
     "@clerk/clerk-expo": "~2.19.33",
