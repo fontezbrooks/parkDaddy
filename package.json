@@ -90,5 +90,6 @@
       "/node_modules/",
       "/.expo/"
     ]
-  }
+  },
+  "packageManager": "pnpm@12.18.0"
 }
