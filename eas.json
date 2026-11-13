@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "pnpm": "12.18.0",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -15,12 +16,14 @@
       }
     },
     "preview": {
+      "pnpm": "12.18.0",
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
       }
     },
     "production": {
+      "pnpm": "12.18.0",
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME": "com.googleusercontent.apps.776685094975-annpj8aq71bkn2toc4qprv87m6epa8eh"
