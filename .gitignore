@@ -8,8 +8,8 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
-.env
-.env.local
+.env*
+!.env.example
 # Native
 .kotlin/
 *.orig.*
@@ -32,7 +32,6 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
 
 # typescript
 *.tsbuildinfo
@@ -40,9 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-.env
-
-.env.local
 Design_splash_screen/
 # Serena MCP local project state
 /.serena
+
+# local SDD scratch
+.superpowers/

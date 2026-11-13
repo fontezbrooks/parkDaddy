@@ -611,7 +611,7 @@ Notification payload format:
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
-| `PARKEAZ_GUEST_CODE` | `MTDJR7` | Guest code for ParkEaz API |
+| `PARKEAZ_GUEST_CODE` | `<guest code: Convex env PARKEAZ_GUEST_CODE>` | Guest code for ParkEaz API |
 | `PARKEAZ_BASE_URL` | `https://paid.parkeaz.com` | ParkEaz API base URL |
 | `EXPO_ACCESS_TOKEN` | `<from expo.dev>` | For sending push notifications via Expo's API |
 | `CLERK_JWT_ISSUER_DOMAIN` | `https://funny-sunbeam-94.clerk.accounts.dev` | Clerk JWT validation |
