@@ -9,6 +9,8 @@ import {
   coverageEndFor,
   digitsOnly,
   planRegistrationPushes,
+  modelCoverageEnd,
+  MAX_COVERAGE_MS,
   DUE_BUFFER_MS,
   REGISTRATION_MS,
 } from "../renewal";
@@ -257,5 +259,33 @@ describe("planRegistrationPushes", () => {
       due: pastEnd - DUE_BUFFER_MS,
       lapse: pastEnd,
     });
+  });
+});
+
+describe("modelCoverageEnd (Eastern)", () => {
+  test.each([
+    [
+      "12:15 AM -> 10:00 AM same day",
+      Date.UTC(2026, 10, 13, 5, 15),
+      Date.UTC(2026, 10, 13, 15, 0),
+    ],
+    [
+      "9:05 PM -> 10:00 AM next day",
+      Date.UTC(2026, 10, 14, 2, 5),
+      Date.UTC(2026, 10, 14, 15, 0),
+    ],
+    ["2:00 PM -> +2h", Date.UTC(2026, 10, 13, 19, 0), Date.UTC(2026, 10, 13, 21, 0)],
+    ["8:59 PM -> +2h", Date.UTC(2026, 10, 14, 1, 59), Date.UTC(2026, 10, 14, 3, 59)],
+    [
+      "9:30 AM -> 10:00 AM (30 min)",
+      Date.UTC(2026, 10, 13, 14, 30),
+      Date.UTC(2026, 10, 13, 15, 0),
+    ],
+  ])("%s", (_label, now, expected) => {
+    expect(modelCoverageEnd(now)).toBe(expected);
+  });
+  test("never exceeds MAX_COVERAGE_MS", () => {
+    const now = Date.UTC(2026, 10, 14, 2, 0); // 9:00 PM EST
+    expect(modelCoverageEnd(now) - now).toBeLessThanOrEqual(MAX_COVERAGE_MS);
   });
 });

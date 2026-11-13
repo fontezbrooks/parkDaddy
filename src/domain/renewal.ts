@@ -1,8 +1,30 @@
+import { easternParts, nextEasternWallClock } from "./easternTime";
+
 export const REGISTRATION_MS = 2 * 60 * 60 * 1000;
 export const DUE_BUFFER_MS = 10 * 60 * 1000;
 export const DAILY_DURATION_MS = 24 * 60 * 60 * 1000;
 export const EXPIRY_WARNING_MS = 15 * 60 * 1000;
 export const TOKEN_WINDOW_MS = 2 * 60 * 1000;
+
+// ParkEaz sells 2 h by day and, from 9 PM, a single block that ends at a
+// fixed 10:00 AM Eastern. A page value is trusted up to this span plus slack.
+export const MAX_COVERAGE_MS = 13 * 60 * 60 * 1000;
+export const PARK_END_SLACK_MS = 15 * 60 * 1000;
+export const OVERNIGHT_START_HOUR = 21;
+export const OVERNIGHT_END_HOUR = 10;
+
+export type CoverageEndSource = "page" | "checkout" | "model";
+
+// Last-resort coverage end when neither the success page nor the checkout
+// page gave one.
+export function modelCoverageEnd(now: number): number {
+  const { hour } = easternParts(now);
+  const isOvernight =
+    hour >= OVERNIGHT_START_HOUR || hour < OVERNIGHT_END_HOUR;
+  return isOvernight
+    ? nextEasternWallClock(now, OVERNIGHT_END_HOUR)
+    : now + REGISTRATION_MS;
+}
 
 const GUEST_CODE_PATTERN = /^[A-Z0-9]{4,12}$/;
 

@@ -1,13 +1,12 @@
-import { REGISTRATION_MS } from "@/src/domain/renewal";
+import { PARK_END_SLACK_MS, REGISTRATION_MS } from "@/src/domain/renewal";
+import { easternWallClockToMs } from "@/src/domain/easternTime";
 
 export const PARKEAZ_ORIGIN = "https://paid.parkeaz.com";
 export const PARKEAZ_START_URL =
   PARKEAZ_ORIGIN + "/paid?zone=622&propertyid=202";
 export const ZONE = "622";
 
-const EASTERN_TZ = "America/New_York";
 // A page time is trusted only inside (now, now + 2h + slack].
-const PARK_END_SLACK_MS = 15 * 60 * 1000;
 const PARK_END_PATTERN =
   /\b(?:valid until|ends|expires|parkend)\b\D{0,40}?(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/i;
 
@@ -118,36 +117,6 @@ export const SUCCESS_PROBE_SCRIPT = `(function () {
     text: document.body.innerText
   }));
 })(); true;`;
-
-// Offset (UTC minus Eastern wall clock) at a given instant, independent of device zone.
-function getEasternOffsetMs(instantMs: number): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: EASTERN_TZ,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(instantMs));
-  const get = (type: string) =>
-    Number(parts.find((p) => p.type === type)?.value);
-  const wallAsUtc = Date.UTC(
-    get("year"),
-    get("month") - 1,
-    get("day"),
-    get("hour"),
-    get("minute"),
-    get("second"),
-  );
-  return Math.floor(instantMs / 1000) * 1000 - wallAsUtc;
-}
-
-function easternWallClockToMs(wallAsUtcMs: number): number {
-  const first = wallAsUtcMs + getEasternOffsetMs(wallAsUtcMs);
-  return wallAsUtcMs + getEasternOffsetMs(first);
-}
 
 export function parsePageParkEnd(
   text: string,
