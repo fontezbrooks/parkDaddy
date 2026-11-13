@@ -39,6 +39,8 @@ function runInjection(
     postMessage: (m: string) => posted.push(JSON.parse(m)),
   };
   for (const f of Array.from(document.forms)) f.submit = jest.fn();
+  // The live /select_product page defines this for its label's onclick.
+  (window as any).ifAllowTexts = jest.fn();
   setup?.();
   new Function(buildInjection(page, injected)!)();
   return posted;
@@ -137,6 +139,41 @@ describe("buildInjection on /select_product", () => {
     expect(document.forms[0].id).toBe("decoy");
     expect(document.forms[0].submit).not.toHaveBeenCalled();
     expect(guestForm.submit).toHaveBeenCalledTimes(1);
+    expect(posted).toEqual([
+      { type: "autofill", page: "select_product", result: "applied" },
+    ]);
+  });
+  test("ticks the text alerts checkbox through the page's own click handler", () => {
+    const ifAllowTexts = jest.fn();
+    runInjection(fixture("select_product.html"), "select_product", () => {
+      (window as any).ifAllowTexts = ifAllowTexts;
+    });
+    const box = document.getElementById(
+      "parkallowtextalert",
+    ) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(ifAllowTexts).toHaveBeenCalledTimes(1);
+    expect(document.forms[0].submit).toHaveBeenCalledTimes(1);
+  });
+  test("leaves an already-ticked text alerts checkbox alone", () => {
+    const ifAllowTexts = jest.fn();
+    runInjection(fixture("select_product.html"), "select_product", () => {
+      (window as any).ifAllowTexts = ifAllowTexts;
+      (document.getElementById("parkallowtextalert") as HTMLInputElement).checked = true;
+    });
+    const box = document.getElementById(
+      "parkallowtextalert",
+    ) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(ifAllowTexts).not.toHaveBeenCalled();
+  });
+  test("still fills and submits when the text alerts checkbox is absent", () => {
+    const posted = runInjection(
+      fixture("select_product.html"),
+      "select_product",
+      () => document.getElementById("parkallowtextalert")!.closest("label")!.remove(),
+    );
+    expect(document.forms[0].submit).toHaveBeenCalledTimes(1);
     expect(posted).toEqual([
       { type: "autofill", page: "select_product", result: "applied" },
     ]);
