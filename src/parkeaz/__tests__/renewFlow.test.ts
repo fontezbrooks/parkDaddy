@@ -64,18 +64,20 @@ test("success page with parkid and parkend enters saving", () => {
     parkEndSource: "page",
   });
 });
-test("success page without parkend uses fallback", () => {
+test("success page without parkend uses the clock model", () => {
   const s = renewFlowReducer(loading, {
     type: "success_page",
     url: "https://x/successful_transaction?parkid=7",
     text: "ok",
     now,
   });
+  // `now` is 2027-01-15T08:00Z = 03:00 EST, inside the overnight window, so
+  // the model ends at 10:00 AM EST that day.
   expect(s).toMatchObject({
     step: "saving",
     parkId: "7",
-    parkEnd: now + 7_200_000,
-    parkEndSource: "fallback",
+    parkEnd: Date.UTC(2027, 0, 15, 15, 0),
+    parkEndSource: "model",
   });
 });
 test("save_failed keeps the values and banner shows the confirmation id", () => {
@@ -267,10 +269,10 @@ describe("injectionFor", () => {
       injectionFor("https://paid.parkeaz.com/paid?ErrorMessage=Nope", values),
     ).toBeNull();
   });
-  test("injects nothing on checkout", () => {
-    expect(
-      injectionFor("https://paid.parkeaz.com/checkout", values),
-    ).toBeNull();
+  test("injects the Turnstile watcher on checkout", () => {
+    const script = injectionFor("https://paid.parkeaz.com/checkout", values);
+    expect(script).toContain("cf-turnstile-response");
+    expect(script).toContain("register to park");
   });
 });
 

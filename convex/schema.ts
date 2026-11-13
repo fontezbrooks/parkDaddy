@@ -64,8 +64,14 @@ export default defineSchema({
     parkEnd: v.optional(v.number()),
     error: v.optional(v.string()),
     source: v.optional(v.union(v.literal("server"), v.literal("client"))),
+    // "fallback" is the pre-3.3.0-release name for "model"; kept for old rows.
     parkEndSource: v.optional(
-      v.union(v.literal("page"), v.literal("fallback")),
+      v.union(
+        v.literal("page"),
+        v.literal("checkout"),
+        v.literal("model"),
+        v.literal("fallback"),
+      ),
     ),
   }).index("by_session", ["sessionId"]),
 

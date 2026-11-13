@@ -74,7 +74,7 @@ function useRenewTelemetry(state: RenewFlowState, startedAt: number | null) {
   }, [state.step]);
 
   useEffect(() => {
-    if (state.step !== "saving" || state.parkEndSource !== "fallback") return;
+    if (state.step !== "saving" || state.parkEndSource === "page") return;
     if (fallbackReportedRef.current === state.parkId) return;
     fallbackReportedRef.current = state.parkId;
     Sentry.captureMessage("renew_parkend_fallback", "warning");

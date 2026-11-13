@@ -284,7 +284,12 @@ export const recordRegistration = mutation({
     parkId: v.string(),
     parkStart: v.number(),
     parkEnd: v.number(),
-    parkEndSource: v.union(v.literal("page"), v.literal("fallback")),
+    parkEndSource: v.union(
+      v.literal("page"),
+      v.literal("checkout"),
+      v.literal("model"),
+      v.literal("fallback"),
+    ),
   },
   handler: async (ctx, args) => {
     // Coded errors survive production redaction; the client keys on `code`.

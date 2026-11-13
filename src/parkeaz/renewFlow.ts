@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { CoverageEndSource } from "@/src/domain/renewal";
 import {
   PARKEAZ_ORIGIN,
   SUCCESS_PROBE_SCRIPT,
@@ -15,7 +16,7 @@ type Registration = {
   parkId: string;
   parkStart: number;
   parkEnd: number;
-  parkEndSource: "page" | "fallback";
+  parkEndSource: CoverageEndSource;
 };
 
 export type RenewFlowState =
